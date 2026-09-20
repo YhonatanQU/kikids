@@ -5,3 +5,7 @@ build/
 .env.local
 *.log
 .DS_Store
+*.tsbuildinfo
+.tsbuild/
+
+.vercel

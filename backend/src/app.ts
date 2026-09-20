@@ -1,9 +1,9 @@
 import express from 'express';
 import cors from 'cors';
-import { env } from '@/config/env.js';
-import { ordersRouter } from '@/routes/orders.routes.js';
-import { invoicesRouter } from '@/routes/invoices.routes.js';
-import { errorHandler } from '@/middleware/errorHandler.js';
+import { env } from './config/env.js';
+import { ordersRouter } from './routes/orders.routes.js';
+import { invoicesRouter } from './routes/invoices.routes.js';
+import { errorHandler } from './middleware/errorHandler.js';
 
 export const app = express();
 

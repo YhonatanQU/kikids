@@ -1,5 +1,5 @@
-import { supabaseAdmin } from '@/config/supabaseClient.js';
-import { logger } from '@/utils/logger.js';
+import { supabaseAdmin } from '../config/supabaseClient.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Llama al RPC de Postgres que expira reservas vencidas y regresa el

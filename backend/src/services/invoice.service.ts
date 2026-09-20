@@ -1,5 +1,5 @@
 import PDFDocument from 'pdfkit';
-import { supabaseAdmin } from '@/config/supabaseClient.js';
+import { supabaseAdmin } from '../config/supabaseClient.js';
 
 interface OrderItemRow {
   product_name_snapshot: string;

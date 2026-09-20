@@ -1,7 +1,7 @@
 import type { Response } from 'express';
-import type { AuthenticatedRequest } from '@/middleware/auth.middleware.js';
-import { supabaseAdmin } from '@/config/supabaseClient.js';
-import { generateInvoiceForOrder } from '@/services/invoice.service.js';
+import type { AuthenticatedRequest } from '../middleware/auth.middleware.js';
+import { supabaseAdmin } from '../config/supabaseClient.js';
+import { generateInvoiceForOrder } from '../services/invoice.service.js';
 
 /**
  * Confirma el pago de un pedido (admin) y encadena la generación de

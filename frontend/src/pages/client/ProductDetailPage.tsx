@@ -26,7 +26,15 @@ export function ProductDetailPage() {
       )
       .eq('slug', slug)
       .single()
-      .then(({ data }) => setProduct(data ? mapProductRow(data) : null));
+      .then(({ data }) => {
+        const mapped = data ? mapProductRow(data) : null;
+        setProduct(mapped);
+        // Preselecciona la primera talla con stock: no debería hacer
+        // falta un clic extra para comprar cuando solo hay una opción
+        // (o para elegir un punto de partida razonable si hay varias).
+        const firstAvailable = mapped?.variants.find((v) => v.availableQuantity > 0);
+        setSelectedVariantId(firstAvailable?.id ?? null);
+      });
   }, [slug]);
 
   // Mantiene el stock disponible actualizado en vivo mientras el cliente

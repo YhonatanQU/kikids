@@ -1,10 +1,16 @@
 import { Link } from 'react-router-dom';
 import type { Product } from '@/types/catalog';
 import { formatPEN } from '@/lib/formatCurrency';
+import { KIDS_SIZES } from '@/lib/sizes';
+
+function sizeLabel(value: string): string {
+  return KIDS_SIZES.find((s) => s.value === value)?.label ?? value;
+}
 
 export function ProductCard({ product }: { product: Product }) {
   const primaryImage = product.images.find((img) => img.isPrimary) ?? product.images[0];
   const totalStock = product.variants.reduce((sum, v) => sum + v.availableQuantity, 0);
+  const sizes = [...new Set(product.variants.map((v) => v.size))];
 
   return (
     <Link
@@ -41,6 +47,11 @@ export function ProductCard({ product }: { product: Product }) {
       <div className="p-3.5">
         <h3 className="truncate text-sm font-semibold text-ink-800 md:text-base">{product.name}</h3>
         <p className="mt-1 font-extrabold text-brand-600">{formatPEN(product.basePrice)}</p>
+        {sizes.length > 0 && (
+          <p className="mt-1 truncate text-xs text-ink-400">
+            Talla{sizes.length > 1 ? 's' : ''}: {sizes.map(sizeLabel).join(', ')}
+          </p>
+        )}
       </div>
     </Link>
   );

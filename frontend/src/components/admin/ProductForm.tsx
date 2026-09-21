@@ -159,16 +159,25 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     setImages(null);
   }
 
-  async function uploadImages(productId: string) {
-    if (!images) return;
+  /** Devuelve mensajes de error (si los hay) en vez de tragárselos en
+   * silencio — así "se guardó pero la foto no subió" queda visible. */
+  async function uploadImages(productId: string): Promise<string[]> {
+    if (!images) return [];
+    const failures: string[] = [];
     for (const file of Array.from(images)) {
       const path = `${productId}/${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage.from('product-images').upload(path, file);
-      if (!uploadError) {
-        const { data: publicUrl } = supabase.storage.from('product-images').getPublicUrl(path);
-        await supabase.from('product_images').insert({ product_id: productId, url: publicUrl.publicUrl });
+      if (uploadError) {
+        failures.push(`${file.name}: ${uploadError.message}`);
+        continue;
       }
+      const { data: publicUrl } = supabase.storage.from('product-images').getPublicUrl(path);
+      const { error: insertError } = await supabase
+        .from('product_images')
+        .insert({ product_id: productId, url: publicUrl.publicUrl });
+      if (insertError) failures.push(`${file.name}: ${insertError.message}`);
     }
+    return failures;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -255,11 +264,17 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
       );
     }
 
-    await uploadImages(productId);
+    const uploadFailures = await uploadImages(productId);
 
     setSaving(false);
-    resetForm();
+    resetForm(); // el producto ya se guardó; evita reenviar y duplicarlo
     onSaved();
+
+    if (uploadFailures.length > 0) {
+      setError(
+        `El producto se guardó, pero no se pudo subir: ${uploadFailures.join('; ')}. Ábrelo con "Editar" para volver a intentar.`
+      );
+    }
   }
 
   return (

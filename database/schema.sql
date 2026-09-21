@@ -1,5 +1,5 @@
 -- =====================================================================
--- KIKIDS - Esquema de Base de Datos (PostgreSQL / Supabase)  -- pass: TIYylEraA1XvvmKX
+-- KIKIDS - Esquema de Base de Datos (PostgreSQL / Supabase)
 -- =====================================================================
 -- Orden de ejecución: este archivo es idempotente-friendly para un
 -- entorno nuevo. Ejecutar completo en el SQL Editor de Supabase o vía
@@ -587,3 +587,30 @@ insert into categories (name, slug, display_order) values
   ('Abrigos', 'abrigos', 5),
   ('Ropa de baño', 'ropa-de-bano', 6)
 on conflict (slug) do nothing;
+
+-- =====================================================================
+-- 21. STORAGE: buckets para fotos de producto y comprobantes
+-- =====================================================================
+-- ProductForm sube a "product-images" con el cliente anon/authenticated
+-- (necesita policies propias en storage.objects). El backend sube a
+-- "invoices" con la Service Role Key, que ignora RLS por completo.
+
+insert into storage.buckets (id, name, public)
+values ('product-images', 'product-images', true)
+on conflict (id) do nothing;
+
+insert into storage.buckets (id, name, public)
+values ('invoices', 'invoices', true)
+on conflict (id) do nothing;
+
+create policy "public_read_product_images" on storage.objects
+  for select using (bucket_id = 'product-images');
+
+create policy "admin_write_product_images" on storage.objects
+  for insert to authenticated with check (bucket_id = 'product-images');
+
+create policy "admin_update_product_images" on storage.objects
+  for update to authenticated using (bucket_id = 'product-images');
+
+create policy "admin_delete_product_images" on storage.objects
+  for delete to authenticated using (bucket_id = 'product-images');

@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { useCartStore } from '@/store/cartStore';
 import { buildWhatsAppLink, buildWhatsAppMessage } from '@/lib/whatsapp';
+import { getCurrentPosition, reverseGeocode, googleMapsLink } from '@/lib/geolocation';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
+import { PaymentMethodSelector } from './PaymentMethodSelector';
 import type { PaymentMethod, ShippingInfo } from '@/types/order';
 
 const SHIPPING_COST = 12; // TODO: reglas reales de envío por distrito
@@ -20,6 +21,30 @@ export function CheckoutForm() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Yape');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [mapLink, setMapLink] = useState<string | null>(null);
+
+  async function handleUseMyLocation() {
+    setLocating(true);
+    setLocationError(null);
+    try {
+      const coords = await getCurrentPosition();
+      const result = await reverseGeocode(coords);
+      setShipping((prev) => ({
+        ...prev,
+        address: result.address || prev.address,
+        district: result.district || prev.district,
+        city: result.city || prev.city,
+      }));
+      setMapLink(googleMapsLink(coords));
+    } catch (err) {
+      setLocationError(err instanceof Error ? err.message : 'No se pudo obtener tu ubicación.');
+    } finally {
+      setLocating(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -95,7 +120,44 @@ export function CheckoutForm() {
         </div>
 
         <div className="border-t border-ink-100 pt-5">
-          <h2 className="text-base font-bold text-ink-900">Dirección de envío</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-ink-900">Dirección de envío</h2>
+            <button
+              type="button"
+              onClick={handleUseMyLocation}
+              disabled={locating}
+              className="flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50"
+            >
+              {locating ? (
+                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+                  <path d="M12 21s-7-6.1-7-11a7 7 0 0114 0c0 4.9-7 11-7 11z" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" />
+                  <circle cx="12" cy="10" r="2.3" stroke="currentColor" strokeWidth="1.75" />
+                </svg>
+              )}
+              {locating ? 'Ubicando...' : 'Usar mi ubicación'}
+            </button>
+          </div>
+
+          {locationError && <p className="mt-2 text-xs text-red-500">{locationError}</p>}
+          {mapLink && !locationError && (
+            <a
+              href={mapLink}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
+            >
+              Ver ubicación en Google Maps
+              <svg viewBox="0 0 20 20" fill="none" className="h-3 w-3">
+                <path d="M7 13L13 7M8 7h5v5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </a>
+          )}
+
           <div className="mt-3 space-y-4">
             <Input
               label="Dirección"
@@ -131,14 +193,7 @@ export function CheckoutForm() {
         <div className="border-t border-ink-100 pt-5">
           <h2 className="text-base font-bold text-ink-900">Método de pago</h2>
           <div className="mt-3">
-            <Select
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-            >
-              <option value="Yape">Yape</option>
-              <option value="Plin">Plin</option>
-              <option value="Transferencia">Transferencia bancaria</option>
-            </Select>
+            <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} />
           </div>
         </div>
 

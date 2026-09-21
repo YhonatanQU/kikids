@@ -1,4 +1,5 @@
 import type { Product, ProductImage, ProductVariant } from '@/types/catalog';
+import type { AdminOrder, AdminOrderItem } from '@/types/order';
 
 /**
  * Supabase/PostgREST devuelve las columnas tal cual están en Postgres
@@ -39,5 +40,40 @@ export function mapProductRow(row: any): Product {
       url: img.url,
       isPrimary: img.is_primary,
     })),
+  };
+}
+
+export function mapAdminOrderRow(row: any): AdminOrder {
+  return {
+    id: row.id,
+    orderNumber: row.order_number,
+    status: row.status,
+    shippingFullName: row.shipping_full_name,
+    shippingPhone: row.shipping_phone,
+    shippingAddress: row.shipping_address,
+    shippingDistrict: row.shipping_district,
+    shippingCity: row.shipping_city,
+    shippingReference: row.shipping_reference ?? null,
+    paymentMethod: row.payment_method ?? null,
+    subtotal: Number(row.subtotal),
+    shippingCost: Number(row.shipping_cost),
+    total: Number(row.total),
+    currency: row.currency,
+    customerEmail: row.customers?.email ?? null,
+    reservedUntil: row.reserved_until ?? null,
+    confirmedAt: row.confirmed_at ?? null,
+    createdAt: row.created_at,
+  };
+}
+
+export function mapAdminOrderItemRow(row: any): AdminOrderItem {
+  return {
+    id: row.id,
+    productName: row.product_name_snapshot,
+    size: row.size_snapshot,
+    color: row.color_snapshot,
+    quantity: row.quantity,
+    unitPrice: Number(row.unit_price),
+    subtotal: Number(row.subtotal),
   };
 }

@@ -1,46 +1,46 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { mapAdminOrderRow } from '@/lib/mappers';
+import { ORDER_STATUS_STYLE } from '@/lib/orderStatus';
+import { formatPEN } from '@/lib/formatCurrency';
 import { Card } from '@/components/ui/Card';
-import type { OrderStatus } from '@/types/order';
+import { OrderDetailDrawer } from './OrderDetailDrawer';
+import type { AdminOrder } from '@/types/order';
 
-interface OrderRow {
-  id: string;
-  order_number: string;
-  status: OrderStatus;
-  shipping_full_name: string;
-  total: number;
-  reserved_until: string | null;
-  created_at: string;
-}
+const SELECT_QUERY = `id, order_number, status, shipping_full_name, shipping_phone,
+  shipping_address, shipping_district, shipping_city, shipping_reference,
+  payment_method, subtotal, shipping_cost, total, currency, reserved_until,
+  confirmed_at, created_at, customers(email)`;
 
-const STATUS_STYLE: Record<OrderStatus, { label: string; className: string }> = {
-  pending_payment: { label: 'Pendiente de Pago', className: 'bg-amber-50 text-amber-700' },
-  payment_confirmed: { label: 'Pago Confirmado', className: 'bg-emerald-50 text-emerald-700' },
-  shipped: { label: 'Enviado', className: 'bg-blue-50 text-blue-700' },
-  delivered: { label: 'Entregado', className: 'bg-ink-100 text-ink-600' },
-  cancelled: { label: 'Cancelado', className: 'bg-red-50 text-red-600' },
-  expired: { label: 'Expirado', className: 'bg-ink-100 text-ink-400' },
-};
-
-/** Bandeja de pedidos con Realtime: nuevos pedidos aparecen sin recargar. */
+/** Bandeja de pedidos con Realtime: nuevos pedidos y cambios de estado aparecen sin recargar. */
 export function OrdersInbox() {
-  const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
 
-  useEffect(() => {
+  function loadOrders() {
     supabase
       .from('orders')
-      .select('id, order_number, status, shipping_full_name, total, reserved_until, created_at')
+      .select(SELECT_QUERY)
       .order('created_at', { ascending: false })
-      .then(({ data }) => setOrders((data as OrderRow[]) ?? []));
+      .then(({ data }) => setOrders((data ?? []).map(mapAdminOrderRow)));
+  }
 
+  useEffect(() => {
+    loadOrders();
+
+    // El payload de Realtime solo trae columnas de "orders" (sin el join a
+    // customers), así que al fusionar conservamos el email que ya teníamos.
     const channel = supabase
       .channel('orders-inbox')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+        const incoming = mapAdminOrderRow(payload.new);
         setOrders((prev) => {
-          const row = payload.new as OrderRow;
-          const exists = prev.some((o) => o.id === row.id);
-          return exists ? prev.map((o) => (o.id === row.id ? row : o)) : [row, ...prev];
+          const idx = prev.findIndex((o) => o.id === incoming.id);
+          if (idx === -1) return [incoming, ...prev];
+          const merged = { ...incoming, customerEmail: prev[idx].customerEmail };
+          return prev.map((o, i) => (i === idx ? merged : o));
         });
+        setSelectedOrder((prev) => (prev && prev.id === incoming.id ? { ...incoming, customerEmail: prev.customerEmail } : prev));
       })
       .subscribe();
 
@@ -48,12 +48,6 @@ export function OrdersInbox() {
       supabase.removeChannel(channel);
     };
   }, []);
-
-  async function confirmPayment(orderId: string) {
-    const { error } = await supabase.rpc('confirm_order_payment', { p_order_id: orderId });
-    if (error) alert(error.message);
-    // TODO: disparar generación de factura PDF vía backend Express tras confirmar.
-  }
 
   if (orders.length === 0) {
     return (
@@ -64,44 +58,50 @@ export function OrdersInbox() {
   }
 
   return (
-    <Card className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-ink-100 text-sm">
-        <thead className="bg-ink-50/70 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
-          <tr>
-            <th className="px-4 py-3">Pedido</th>
-            <th className="px-4 py-3">Cliente</th>
-            <th className="px-4 py-3">Total</th>
-            <th className="px-4 py-3">Estado</th>
-            <th className="px-4 py-3">Reserva vence</th>
-            <th className="px-4 py-3"></th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-ink-100">
-          {orders.map((order) => {
-            const status = STATUS_STYLE[order.status];
-            return (
-              <tr key={order.id} className="transition-colors hover:bg-ink-50/50">
-                <td className="px-4 py-3 font-mono text-xs text-ink-500">{order.order_number}</td>
-                <td className="px-4 py-3 font-medium text-ink-800">{order.shipping_full_name}</td>
-                <td className="px-4 py-3 font-semibold text-ink-800">S/ {order.total.toFixed(2)}</td>
-                <td className="px-4 py-3">
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${status.className}`}>{status.label}</span>
-                </td>
-                <td className="px-4 py-3 text-xs text-ink-400">
-                  {order.reserved_until ? new Date(order.reserved_until).toLocaleString('es-PE') : '—'}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  {order.status === 'pending_payment' && (
-                    <button onClick={() => confirmPayment(order.id)} className="text-sm font-semibold text-emerald-600 hover:text-emerald-700">
-                      Confirmar pago
+    <>
+      <Card className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-ink-100 text-sm">
+          <thead className="bg-ink-50/70 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
+            <tr>
+              <th className="px-4 py-3">Pedido</th>
+              <th className="px-4 py-3">Cliente</th>
+              <th className="px-4 py-3">Total</th>
+              <th className="px-4 py-3">Estado</th>
+              <th className="px-4 py-3">Reserva vence</th>
+              <th className="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-ink-100">
+            {orders.map((order) => {
+              const status = ORDER_STATUS_STYLE[order.status];
+              return (
+                <tr key={order.id} className="cursor-pointer transition-colors hover:bg-ink-50/50" onClick={() => setSelectedOrder(order)}>
+                  <td className="px-4 py-3 font-mono text-xs text-ink-500">{order.orderNumber}</td>
+                  <td className="px-4 py-3 font-medium text-ink-800">{order.shippingFullName}</td>
+                  <td className="px-4 py-3 font-semibold text-ink-800">{formatPEN(order.total)}</td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${status.className}`}>{status.label}</span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-ink-400">
+                    {order.reservedUntil ? new Date(order.reservedUntil).toLocaleString('es-PE') : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button onClick={() => setSelectedOrder(order)} className="text-sm font-semibold text-brand-600 hover:text-brand-700">
+                      Ver detalle
                     </button>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </Card>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </Card>
+
+      <OrderDetailDrawer
+        order={selectedOrder}
+        onClose={() => setSelectedOrder(null)}
+        onChanged={loadOrders}
+      />
+    </>
   );
 }

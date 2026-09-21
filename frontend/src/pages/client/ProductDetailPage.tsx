@@ -62,6 +62,7 @@ export function ProductDetailPage() {
 
   function handleAddToCart() {
     if (!selectedVariant || !product) return;
+    const primaryImage = product.images.find((img) => img.isPrimary) ?? product.images[0];
     addItem({
       variantId: selectedVariant.id,
       productName: product.name,
@@ -70,6 +71,7 @@ export function ProductDetailPage() {
       unitPrice: selectedVariant.priceOverride ?? product.basePrice,
       quantity: 1,
       availableQuantity: selectedVariant.availableQuantity,
+      imageUrl: primaryImage?.url,
     });
     setAdded(true);
     setTimeout(() => setAdded(false), 1800);

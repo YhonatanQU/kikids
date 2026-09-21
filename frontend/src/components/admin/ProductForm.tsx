@@ -54,12 +54,15 @@ export function ProductForm({ onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Precio de venta = (compra + flete + gastos admin) * (1 + margen%)
+  // Precio de venta = costo_total / (1 - margen%). Es margen (% sobre el
+  // precio de venta), no markup (% sobre el costo) — ej. margen 30% y
+  // costo 70 -> precio 100 (la ganancia de 30 es el 30% del precio final).
   const totalCost = costPrice + freightCost + adminCost;
-  const salePrice = useMemo(
-    () => Math.round(totalCost * (1 + markupPercentage / 100) * 100) / 100,
-    [totalCost, markupPercentage]
-  );
+  const marginRatio = Math.min(markupPercentage, 99) / 100;
+  const salePrice = useMemo(() => {
+    const divisor = 1 - marginRatio;
+    return divisor > 0 ? Math.round((totalCost / divisor) * 100) / 100 : 0;
+  }, [totalCost, marginRatio]);
 
   function addVariantRow() {
     setVariants((prev) => [...prev, emptyVariant()]);
@@ -218,11 +221,14 @@ export function ProductForm({ onSaved }: Props) {
             <div>
               <p className="text-xs font-medium text-brand-700">Precio de venta (calculado)</p>
               <p className="text-[11px] text-brand-500">
-                ({formatPEN(costPrice)} + {formatPEN(freightCost)} + {formatPEN(adminCost)}) × {(1 + markupPercentage / 100).toFixed(2)}
+                {formatPEN(totalCost)} ÷ (1 − {markupPercentage}%)
               </p>
             </div>
             <p className="text-2xl font-extrabold text-brand-700">{formatPEN(salePrice)}</p>
           </div>
+          {markupPercentage >= 99 && (
+            <p className="mt-2 text-xs text-red-500">El margen debe ser menor a 100%.</p>
+          )}
         </div>
 
         <div className="border-t border-ink-100 pt-5">

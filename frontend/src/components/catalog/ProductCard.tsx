@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Product } from '@/types/catalog';
 import { formatPEN } from '@/lib/formatCurrency';
@@ -18,7 +18,22 @@ export function ProductCard({ product }: { product: Product }) {
     ...(product.videoUrl ? [{ type: 'video' as const, url: product.videoUrl }] : []),
   ];
   const [index, setIndex] = useState(0);
+  const [hovering, setHovering] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const current = media[index];
+
+  // Reproduce el video en cuanto el mouse está sobre la tarjeta y el
+  // slide activo es el video; lo pausa y rebobina al salir.
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || current?.type !== 'video') return;
+    if (hovering) {
+      el.play().catch(() => {}); // el navegador puede rechazar el autoplay; no es crítico
+    } else {
+      el.pause();
+      el.currentTime = 0;
+    }
+  }, [hovering, current]);
 
   // Los controles del slide van dentro de un <Link>: hay que frenar la
   // navegación al tocar flechas/puntos, para que solo cambien la foto.
@@ -38,12 +53,20 @@ export function ProductCard({ product }: { product: Product }) {
       to={`/producto/${product.slug}`}
       className="group block overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft"
     >
-      <div className="relative aspect-square w-full overflow-hidden bg-ink-100">
+      <div
+        className="relative aspect-square w-full overflow-hidden bg-ink-100"
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => setHovering(false)}
+      >
         {current ? (
           current.type === 'video' ? (
             <div className="relative h-full w-full">
-              <video src={current.url} muted playsInline className="h-full w-full object-cover" />
-              <span className="absolute inset-0 flex items-center justify-center bg-ink-900/20">
+              <video ref={videoRef} src={current.url} muted loop playsInline className="h-full w-full object-cover" />
+              <span
+                className={`absolute inset-0 flex items-center justify-center bg-ink-900/20 transition-opacity duration-200 ${
+                  hovering ? 'opacity-0' : 'opacity-100'
+                }`}
+              >
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90">
                   <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-ink-800">
                     <path d="M8 5v14l11-7z" />

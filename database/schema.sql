@@ -79,6 +79,7 @@ create table products (
 
   is_active boolean not null default true,
   is_featured boolean not null default false,
+  video_url text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

@@ -51,6 +51,7 @@ export interface Product {
   markupPercentage: number;
   basePrice: number;
   isFeatured: boolean;
+  videoUrl: string | null;
   variants: ProductVariant[];
   images: ProductImage[];
 }

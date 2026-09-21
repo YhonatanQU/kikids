@@ -24,6 +24,8 @@ interface Props {
   onCancelEdit?: () => void;
 }
 
+const MAX_PHOTOS = 3;
+
 const emptyVariant = (): VariantDraft => ({
   size: KIDS_SIZES[0].value,
   color: '',
@@ -75,6 +77,10 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
   const [deletedImageIds, setDeletedImageIds] = useState<string[]>([]);
   const [images, setImages] = useState<FileList | null>(null);
 
+  const [existingVideoUrl, setExistingVideoUrl] = useState<string | null>(null);
+  const [deleteExistingVideo, setDeleteExistingVideo] = useState(false);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -106,6 +112,9 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
       setDeletedVariantIds([]);
       setDeletedImageIds([]);
       setImages(null);
+      setExistingVideoUrl(editingProduct.videoUrl);
+      setDeleteExistingVideo(false);
+      setVideoFile(null);
       setError(null);
     } else {
       resetForm();
@@ -141,6 +150,22 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     setExistingImages((prev) => prev.filter((img) => img.id !== imageId));
   }
 
+  /** El input file es de solo lectura; se recorta con DataTransfer para
+   * respetar el máximo de MAX_PHOTOS fotos (existentes + nuevas). */
+  function handlePhotosSelected(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0) {
+      setImages(null);
+      return;
+    }
+    const remaining = Math.max(MAX_PHOTOS - existingImages.length, 0);
+    if (fileList.length > remaining) {
+      setError(`Máximo ${MAX_PHOTOS} fotos por producto. Se tomaron las primeras ${remaining}.`);
+    }
+    const dt = new DataTransfer();
+    Array.from(fileList).slice(0, remaining).forEach((f) => dt.items.add(f));
+    setImages(dt.files.length > 0 ? dt.files : null);
+  }
+
   function resetForm() {
     const blank = blankState();
     setName(blank.name);
@@ -157,6 +182,9 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     setExistingImages([]);
     setDeletedImageIds([]);
     setImages(null);
+    setExistingVideoUrl(null);
+    setDeleteExistingVideo(false);
+    setVideoFile(null);
   }
 
   /** Devuelve mensajes de error (si los hay) en vez de tragárselos en
@@ -178,6 +206,20 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
       if (insertError) failures.push(`${file.name}: ${insertError.message}`);
     }
     return failures;
+  }
+
+  /** Sube el video (si hay uno nuevo) y devuelve la url final a guardar
+   * en products.video_url — null si se quitó, undefined si no cambió. */
+  async function resolveVideoUrl(productId: string): Promise<{ videoUrl: string | null | undefined; error: string | null }> {
+    if (videoFile) {
+      const path = `${productId}/video-${Date.now()}-${videoFile.name}`;
+      const { error: uploadError } = await supabase.storage.from('product-images').upload(path, videoFile);
+      if (uploadError) return { videoUrl: undefined, error: `${videoFile.name}: ${uploadError.message}` };
+      const { data: publicUrl } = supabase.storage.from('product-images').getPublicUrl(path);
+      return { videoUrl: publicUrl.publicUrl, error: null };
+    }
+    if (deleteExistingVideo) return { videoUrl: null, error: null };
+    return { videoUrl: undefined, error: null }; // sin cambios
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -265,6 +307,12 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     }
 
     const uploadFailures = await uploadImages(productId);
+
+    const { videoUrl, error: videoError } = await resolveVideoUrl(productId);
+    if (videoError) uploadFailures.push(videoError);
+    if (videoUrl !== undefined) {
+      await supabase.from('products').update({ video_url: videoUrl }).eq('id', productId);
+    }
 
     setSaving(false);
     resetForm(); // el producto ya se guardó; evita reenviar y duplicarlo
@@ -429,7 +477,12 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
         </div>
 
         <div className="border-t border-ink-100 pt-5">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Fotos</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Fotos</h3>
+            <span className="text-xs text-ink-400">
+              {existingImages.length + (images?.length ?? 0)}/{MAX_PHOTOS}
+            </span>
+          </div>
 
           {existingImages.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
@@ -450,15 +503,56 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
             </div>
           )}
 
-          <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-ink-200 bg-ink-50/50 px-4 py-8 text-center transition-colors hover:border-brand-300 hover:bg-brand-50/40">
-            <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8 text-ink-300">
-              <path d="M12 16V4m0 0L7 9m5-5l5 5M5 20h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <span className="mt-2 text-sm font-medium text-ink-600">
-              {images && images.length > 0 ? `${images.length} archivo(s) seleccionado(s)` : 'Arrastra o haz clic para subir fotos'}
-            </span>
-            <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => setImages(e.target.files)} />
-          </label>
+          {existingImages.length + (images?.length ?? 0) < MAX_PHOTOS ? (
+            <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-ink-200 bg-ink-50/50 px-4 py-8 text-center transition-colors hover:border-brand-300 hover:bg-brand-50/40">
+              <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8 text-ink-300">
+                <path d="M12 16V4m0 0L7 9m5-5l5 5M5 20h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span className="mt-2 text-sm font-medium text-ink-600">
+                {images && images.length > 0 ? `${images.length} archivo(s) seleccionado(s)` : 'Arrastra o haz clic para subir fotos'}
+              </span>
+              <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handlePhotosSelected(e.target.files)} />
+            </label>
+          ) : (
+            <p className="mt-3 text-xs text-ink-400">Máximo de {MAX_PHOTOS} fotos alcanzado. Quita una para agregar otra.</p>
+          )}
+        </div>
+
+        <div className="border-t border-ink-100 pt-5">
+          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Video del producto</h3>
+
+          {existingVideoUrl && !deleteExistingVideo ? (
+            <div className="group relative mt-3 w-40 overflow-hidden rounded-lg border border-ink-100">
+              <video src={existingVideoUrl} className="h-24 w-full object-cover" />
+              <button
+                type="button"
+                onClick={() => setDeleteExistingVideo(true)}
+                className="absolute inset-0 flex items-center justify-center bg-ink-900/0 text-white opacity-0 transition-opacity group-hover:bg-ink-900/50 group-hover:opacity-100"
+              >
+                <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+                  <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-ink-200 bg-ink-50/50 px-4 py-8 text-center transition-colors hover:border-brand-300 hover:bg-brand-50/40">
+              <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8 text-ink-300">
+                <path d="M15 10l4.5-2.5v9L15 14M4 6h9a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span className="mt-2 text-sm font-medium text-ink-600">
+                {videoFile ? videoFile.name : 'Un video (opcional)'}
+              </span>
+              <input
+                type="file"
+                accept="video/*"
+                className="hidden"
+                onChange={(e) => {
+                  setVideoFile(e.target.files?.[0] ?? null);
+                  setDeleteExistingVideo(false);
+                }}
+              />
+            </label>
+          )}
         </div>
 
         {error && <div className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-600">{error}</div>}

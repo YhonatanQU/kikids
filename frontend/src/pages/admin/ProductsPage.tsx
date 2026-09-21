@@ -6,7 +6,7 @@ import { ProductForm } from '@/components/admin/ProductForm';
 import type { Product } from '@/types/catalog';
 
 const SELECT_QUERY = `id, name, slug, description, category_id, season_id, gender,
-  cost_price, freight_cost, admin_cost, markup_percentage, base_price, is_featured,
+  cost_price, freight_cost, admin_cost, markup_percentage, base_price, is_featured, video_url,
   variants:product_variants(id, size, color, color_hex, sku, price_override, stock_quantity, available_quantity, is_active),
   images:product_images(id, url, variant_id, is_primary)`;
 

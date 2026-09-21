@@ -14,13 +14,14 @@ export function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [added, setAdded] = useState(false);
+  const [activeMedia, setActiveMedia] = useState(0);
   const addItem = useCartStore((s) => s.addItem);
 
   useEffect(() => {
     supabase
       .from('products')
       .select(
-        `id, name, slug, description, category_id, season_id, gender, base_price, is_featured,
+        `id, name, slug, description, category_id, season_id, gender, base_price, is_featured, video_url,
          variants:product_variants(id, size, color, color_hex, sku, price_override, stock_quantity, available_quantity, is_active),
          images:product_images(id, url, variant_id, is_primary)`
       )
@@ -67,6 +68,11 @@ export function ProductDetailPage() {
   }
 
   const selectedVariant = product.variants.find((v) => v.id === selectedVariantId);
+  const media = [
+    ...product.images.map((img) => ({ type: 'image' as const, url: img.url })),
+    ...(product.videoUrl ? [{ type: 'video' as const, url: product.videoUrl }] : []),
+  ];
+  const current = media[activeMedia] ?? media[0];
 
   function handleAddToCart() {
     if (!selectedVariant || !product) return;
@@ -87,9 +93,40 @@ export function ProductDetailPage() {
 
   return (
     <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 px-4 py-8 md:grid-cols-2 md:px-8">
-      <div className="aspect-square overflow-hidden rounded-2xl bg-ink-100 shadow-card">
-        {product.images[0] && (
-          <img src={product.images[0].url} alt={product.name} className="h-full w-full object-cover" />
+      <div>
+        <div className="aspect-square overflow-hidden rounded-2xl bg-ink-100 shadow-card">
+          {current?.type === 'video' ? (
+            <video src={current.url} controls className="h-full w-full object-cover" />
+          ) : current ? (
+            <img src={current.url} alt={product.name} className="h-full w-full object-cover" />
+          ) : null}
+        </div>
+        {media.length > 1 && (
+          <div className="mt-3 flex gap-2">
+            {media.map((m, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setActiveMedia(i)}
+                className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${
+                  i === activeMedia ? 'border-brand-500' : 'border-transparent hover:border-ink-200'
+                }`}
+              >
+                {m.type === 'video' ? (
+                  <>
+                    <video src={m.url} className="h-full w-full object-cover" />
+                    <span className="absolute inset-0 flex items-center justify-center bg-ink-900/30">
+                      <svg viewBox="0 0 24 24" fill="white" className="h-5 w-5">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </span>
+                  </>
+                ) : (
+                  <img src={m.url} alt="" className="h-full w-full object-cover" />
+                )}
+              </button>
+            ))}
+          </div>
         )}
       </div>
       <div>

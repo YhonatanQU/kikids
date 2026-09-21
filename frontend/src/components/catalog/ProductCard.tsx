@@ -2,11 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Product } from '@/types/catalog';
 import { formatPEN } from '@/lib/formatCurrency';
-import { KIDS_SIZES } from '@/lib/sizes';
-
-function sizeLabel(value: string): string {
-  return KIDS_SIZES.find((s) => s.value === value)?.label ?? value;
-}
+import { sizeLabel } from '@/lib/sizes';
 
 type MediaItem = { type: 'image' | 'video'; url: string };
 

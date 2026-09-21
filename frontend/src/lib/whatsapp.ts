@@ -1,5 +1,6 @@
 import type { CartItem } from '@/store/cartStore';
 import type { ShippingInfo } from '@/types/order';
+import { sizeLabel } from '@/lib/sizes';
 
 interface BuildWhatsAppMessageArgs {
   orderNumber: string;
@@ -15,7 +16,7 @@ interface BuildWhatsAppMessageArgs {
  */
 export function buildWhatsAppMessage({ orderNumber, shipping, items, total }: BuildWhatsAppMessageArgs): string {
   const itemsList = items
-    .map((i) => `  • ${i.productName} (SKU ${i.sku}) — Talla ${i.size}, Color ${i.color} x${i.quantity} — S/ ${(i.unitPrice * i.quantity).toFixed(2)}`)
+    .map((i) => `  • ${i.productName} (SKU ${i.sku}) — Talla ${sizeLabel(i.size)}, Color ${i.color} x${i.quantity} — S/ ${(i.unitPrice * i.quantity).toFixed(2)}`)
     .join('\n');
 
   return [

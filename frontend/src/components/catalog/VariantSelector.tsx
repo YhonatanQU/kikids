@@ -1,4 +1,5 @@
 import type { ProductVariant } from '@/types/catalog';
+import { sizeLabel } from '@/lib/sizes';
 
 interface Props {
   variants: ProductVariant[];
@@ -35,7 +36,7 @@ export function VariantSelector({ variants, selectedVariantId, onSelect }: Props
                     : 'border-ink-200 text-ink-700 hover:border-brand-400'
               }`}
             >
-              {size}
+              {sizeLabel(size)}
             </button>
           );
         })}

@@ -1,6 +1,7 @@
 import type { Product } from '@/types/catalog';
 import { StockBadge } from './StockBadge';
 import { formatPEN } from '@/lib/formatCurrency';
+import { sizeLabel } from '@/lib/sizes';
 import { Card } from '@/components/ui/Card';
 
 interface Props {
@@ -45,7 +46,7 @@ export function ProductTable({ products, editingProductId, deletingId, onEdit, o
                 <div className="flex flex-wrap gap-1.5">
                   {product.variants.map((v) => (
                     <div key={v.id} className="flex items-center gap-1.5 rounded-lg border border-ink-100 px-2 py-1">
-                      <span className="text-xs font-medium text-ink-600">{v.size}/{v.color}</span>
+                      <span className="text-xs font-medium text-ink-600">{sizeLabel(v.size)}/{v.color}</span>
                       <StockBadge quantity={v.availableQuantity} />
                     </div>
                   ))}

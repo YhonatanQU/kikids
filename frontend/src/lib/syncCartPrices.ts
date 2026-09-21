@@ -16,17 +16,24 @@ export async function syncCartPrices() {
 
   const { data } = await supabase
     .from('product_variants')
-    .select('id, price_override, available_quantity, is_active, products(base_price, is_active)')
+    .select(
+      'id, price_override, available_quantity, is_active, products(base_price, is_active, product_images(url, is_primary))'
+    )
     .in('id', variantIds);
 
   if (!data) return;
 
-  const fresh: VariantFreshData[] = data.map((v: any) => ({
-    variantId: v.id,
-    unitPrice: v.price_override != null ? Number(v.price_override) : Number(v.products?.base_price ?? 0),
-    availableQuantity: v.available_quantity,
-    stillAvailable: !!v.is_active && !!v.products?.is_active,
-  }));
+  const fresh: VariantFreshData[] = data.map((v: any) => {
+    const images = v.products?.product_images ?? [];
+    const primaryImage = images.find((img: any) => img.is_primary) ?? images[0];
+    return {
+      variantId: v.id,
+      unitPrice: v.price_override != null ? Number(v.price_override) : Number(v.products?.base_price ?? 0),
+      availableQuantity: v.available_quantity,
+      stillAvailable: !!v.is_active && !!v.products?.is_active,
+      imageUrl: primaryImage?.url,
+    };
+  });
 
   syncFromCatalog(fresh);
 }

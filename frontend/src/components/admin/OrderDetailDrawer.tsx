@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { mapAdminOrderItemRow } from '@/lib/mappers';
 import { ORDER_STATUS_STYLE } from '@/lib/orderStatus';
 import { formatPEN } from '@/lib/formatCurrency';
+import { sizeLabel } from '@/lib/sizes';
 import { Button } from '@/components/ui/Button';
 import type { AdminOrder, AdminOrderItem } from '@/types/order';
 
@@ -115,7 +116,7 @@ export function OrderDetailDrawer({ order, onClose, onChanged }: Props) {
                 <div key={item.id} className="flex items-center justify-between px-3 py-2.5 text-sm">
                   <div>
                     <p className="font-medium text-ink-800">{item.productName}</p>
-                    <p className="text-xs text-ink-400">Talla {item.size} · {item.color} · x{item.quantity}</p>
+                    <p className="text-xs text-ink-400">Talla {sizeLabel(item.size)} · {item.color} · x{item.quantity}</p>
                     {item.sku && <p className="font-mono text-[11px] text-ink-300">SKU: {item.sku}</p>}
                   </div>
                   <span className="font-semibold text-ink-700">{formatPEN(item.subtotal)}</span>

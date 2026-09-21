@@ -20,6 +20,8 @@ export interface VariantFreshData {
   availableQuantity: number;
   /** false si la variante fue desactivada o el producto ya no existe/está inactivo. */
   stillAvailable: boolean;
+  /** Foto actual del producto — puede no existir aún al momento de sincronizar. */
+  imageUrl?: string;
 }
 
 interface CartState {
@@ -86,6 +88,7 @@ export const useCartStore = create<CartState>()(
               unitPrice: current.unitPrice,
               availableQuantity: current.availableQuantity,
               quantity: Math.max(1, Math.min(item.quantity, current.availableQuantity)),
+              imageUrl: current.imageUrl ?? item.imageUrl,
             });
           }
           return { items };

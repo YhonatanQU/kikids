@@ -1,5 +1,6 @@
 import { useCartStore } from '@/store/cartStore';
 import { formatPEN } from '@/lib/formatCurrency';
+import { sizeLabel } from '@/lib/sizes';
 import { Card } from '@/components/ui/Card';
 
 export function OrderSummary() {
@@ -33,7 +34,7 @@ export function OrderSummary() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-ink-800">{item.productName}</p>
-                <p className="text-xs text-ink-400">Talla {item.size}{item.color && ` · ${item.color}`}</p>
+                <p className="text-xs text-ink-400">Talla {sizeLabel(item.size)}{item.color && ` · ${item.color}`}</p>
                 <div className="mt-1.5 flex items-center gap-2">
                   <div className="flex items-center rounded-lg border border-ink-200">
                     <button

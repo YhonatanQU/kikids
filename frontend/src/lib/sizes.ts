@@ -17,3 +17,9 @@ export const KIDS_SIZES = [
   { value: '7', label: '7 años' },
   { value: '8', label: '8 años' },
 ] as const;
+
+/** "8" -> "8 años". Si el valor no calza con ninguna talla cerrada
+ * (ej. texto libre heredado de antes del select), lo devuelve tal cual. */
+export function sizeLabel(value: string): string {
+  return KIDS_SIZES.find((s) => s.value === value)?.label ?? value;
+}

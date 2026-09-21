@@ -73,6 +73,7 @@ export function mapAdminOrderItemRow(row: any): AdminOrderItem {
     productName: row.product_name_snapshot,
     size: row.size_snapshot,
     color: row.color_snapshot,
+    sku: row.sku_snapshot ?? null,
     quantity: row.quantity,
     unitPrice: Number(row.unit_price),
     subtotal: Number(row.subtotal),

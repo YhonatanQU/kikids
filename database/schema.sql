@@ -202,6 +202,7 @@ create table order_items (
   product_name_snapshot text not null,
   size_snapshot text not null,
   color_snapshot text not null,
+  sku_snapshot text,
   quantity int not null check (quantity > 0),
   unit_price numeric(10,2) not null check (unit_price >= 0),
   subtotal numeric(10,2) not null check (subtotal >= 0)
@@ -344,7 +345,7 @@ begin
       raise exception 'Cantidad inválida para variante %', v_item->>'variant_id';
     end if;
 
-    select pv.id, pv.stock_quantity, pv.reserved_quantity, pv.size, pv.color,
+    select pv.id, pv.stock_quantity, pv.reserved_quantity, pv.size, pv.color, pv.sku,
            pv.product_id, coalesce(pv.price_override, p.base_price) as price,
            p.name as product_name
     into v_variant
@@ -371,10 +372,10 @@ begin
 
     insert into order_items (
       order_id, product_variant_id, product_name_snapshot,
-      size_snapshot, color_snapshot, quantity, unit_price, subtotal
+      size_snapshot, color_snapshot, sku_snapshot, quantity, unit_price, subtotal
     ) values (
       v_order_id, v_variant.id, v_variant.product_name,
-      v_variant.size, v_variant.color, v_qty, v_variant.price, v_line_subtotal
+      v_variant.size, v_variant.color, v_variant.sku, v_qty, v_variant.price, v_line_subtotal
     );
   end loop;
 

@@ -82,6 +82,7 @@ export function ProductDetailPage() {
       productName: product.name,
       size: selectedVariant.size,
       color: selectedVariant.color,
+      sku: selectedVariant.sku,
       unitPrice: selectedVariant.priceOverride ?? product.basePrice,
       quantity: 1,
       availableQuantity: selectedVariant.availableQuantity,

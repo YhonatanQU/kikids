@@ -57,6 +57,7 @@ export interface AdminOrderItem {
   productName: string;
   size: string;
   color: string;
+  sku: string | null;
   quantity: number;
   unitPrice: number;
   subtotal: number;

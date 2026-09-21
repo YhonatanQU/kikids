@@ -30,7 +30,7 @@ export function OrderDetailDrawer({ order, onClose, onChanged }: Props) {
     setActionError(null);
     supabase
       .from('order_items')
-      .select('id, product_name_snapshot, size_snapshot, color_snapshot, quantity, unit_price, subtotal')
+      .select('id, product_name_snapshot, size_snapshot, color_snapshot, sku_snapshot, quantity, unit_price, subtotal')
       .eq('order_id', order.id)
       .then(({ data }) => {
         setItems((data ?? []).map(mapAdminOrderItemRow));
@@ -116,6 +116,7 @@ export function OrderDetailDrawer({ order, onClose, onChanged }: Props) {
                   <div>
                     <p className="font-medium text-ink-800">{item.productName}</p>
                     <p className="text-xs text-ink-400">Talla {item.size} · {item.color} · x{item.quantity}</p>
+                    {item.sku && <p className="font-mono text-[11px] text-ink-300">SKU: {item.sku}</p>}
                   </div>
                   <span className="font-semibold text-ink-700">{formatPEN(item.subtotal)}</span>
                 </div>

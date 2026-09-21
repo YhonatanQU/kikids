@@ -5,11 +5,14 @@ import { Card } from '@/components/ui/Card';
 
 interface Props {
   products: Product[];
+  editingProductId: string | null;
+  deletingId: string | null;
   onEdit: (product: Product) => void;
+  onDelete: (product: Product) => void;
 }
 
 /** Tabla completa de inventario para escritorio (brief 3.B). */
-export function ProductTable({ products, onEdit }: Props) {
+export function ProductTable({ products, editingProductId, deletingId, onEdit, onDelete }: Props) {
   if (products.length === 0) {
     return (
       <Card className="flex flex-col items-center justify-center py-16 text-center">
@@ -24,7 +27,7 @@ export function ProductTable({ products, onEdit }: Props) {
         <thead className="bg-ink-50/70 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
           <tr>
             <th className="px-4 py-3">Producto</th>
-            <th className="px-4 py-3">Precio base</th>
+            <th className="px-4 py-3">Precio de venta</th>
             <th className="px-4 py-3">Variantes / Stock</th>
             <th className="px-4 py-3">Estado</th>
             <th className="px-4 py-3"></th>
@@ -32,7 +35,10 @@ export function ProductTable({ products, onEdit }: Props) {
         </thead>
         <tbody className="divide-y divide-ink-100">
           {products.map((product) => (
-            <tr key={product.id} className="transition-colors hover:bg-ink-50/50">
+            <tr
+              key={product.id}
+              className={`transition-colors hover:bg-ink-50/50 ${editingProductId === product.id ? 'bg-brand-50/60' : ''}`}
+            >
               <td className="px-4 py-3 font-semibold text-ink-800">{product.name}</td>
               <td className="px-4 py-3 text-ink-600">{formatPEN(product.basePrice)}</td>
               <td className="px-4 py-3">
@@ -52,10 +58,19 @@ export function ProductTable({ products, onEdit }: Props) {
                   <span className="text-xs text-ink-400">Normal</span>
                 )}
               </td>
-              <td className="px-4 py-3 text-right">
-                <button onClick={() => onEdit(product)} className="text-sm font-semibold text-brand-600 hover:text-brand-700">
-                  Editar
-                </button>
+              <td className="px-4 py-3">
+                <div className="flex justify-end gap-3">
+                  <button onClick={() => onEdit(product)} className="text-sm font-semibold text-brand-600 hover:text-brand-700">
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => onDelete(product)}
+                    disabled={deletingId === product.id}
+                    className="text-sm font-semibold text-red-500 hover:text-red-600 disabled:opacity-40"
+                  >
+                    {deletingId === product.id ? 'Eliminando...' : 'Eliminar'}
+                  </button>
+                </div>
               </td>
             </tr>
           ))}

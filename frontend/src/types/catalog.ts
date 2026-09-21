@@ -22,6 +22,9 @@ export interface ProductVariant {
   colorHex: string | null;
   sku: string;
   priceOverride: number | null;
+  /** Stock real en bodega (columna stock_quantity) — usar para edición/administración. */
+  stockQuantity: number;
+  /** stock_quantity - reserved_quantity — usar solo para mostrar disponibilidad al público. */
   availableQuantity: number;
   isActive: boolean;
 }

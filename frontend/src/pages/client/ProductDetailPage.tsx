@@ -21,7 +21,7 @@ export function ProductDetailPage() {
       .from('products')
       .select(
         `id, name, slug, description, category_id, season_id, gender, base_price, is_featured,
-         variants:product_variants(id, size, color, color_hex, sku, price_override, available_quantity, is_active),
+         variants:product_variants(id, size, color, color_hex, sku, price_override, stock_quantity, available_quantity, is_active),
          images:product_images(id, url, variant_id, is_primary)`
       )
       .eq('slug', slug)

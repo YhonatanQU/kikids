@@ -28,6 +28,7 @@ export function mapProductRow(row: any): Product {
       colorHex: v.color_hex ?? null,
       sku: v.sku,
       priceOverride: v.price_override != null ? Number(v.price_override) : null,
+      stockQuantity: v.stock_quantity,
       availableQuantity: v.available_quantity,
       isActive: v.is_active,
     })),

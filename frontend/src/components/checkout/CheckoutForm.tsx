@@ -10,8 +10,6 @@ import { Button } from '@/components/ui/Button';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
 import type { PaymentMethod, ShippingInfo } from '@/types/order';
 
-const SHIPPING_COST = 12; // TODO: reglas reales de envío por distrito
-
 export function CheckoutForm() {
   const navigate = useNavigate();
   const { items, clear } = useCartStore();
@@ -63,7 +61,7 @@ export function CheckoutForm() {
       p_shipping_city: shipping.city,
       p_shipping_reference: shipping.reference || null,
       p_payment_method: paymentMethod,
-      p_shipping_cost: SHIPPING_COST,
+      p_shipping_cost: 0,
       p_items: items.map((i) => ({ variant_id: i.variantId, quantity: i.quantity })),
       p_reservation_minutes: 120,
     });
@@ -76,7 +74,7 @@ export function CheckoutForm() {
     }
 
     const order = Array.isArray(data) ? data[0] : data;
-    const total = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0) + SHIPPING_COST;
+    const total = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
 
     // Paso 2: abrir WhatsApp con el mensaje estructurado.
     const message = buildWhatsAppMessage({ orderNumber: order.order_number, shipping, items, total });

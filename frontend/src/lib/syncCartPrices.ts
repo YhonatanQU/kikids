@@ -1,0 +1,32 @@
+import { supabase } from '@/lib/supabaseClient';
+import { useCartStore, type VariantFreshData } from '@/store/cartStore';
+
+/**
+ * El carrito persiste en localStorage con el precio "congelado" al
+ * momento de agregar el producto. Refresca precio/stock reales desde
+ * Supabase (se llama al abrir el carrito y al entrar a checkout) para
+ * que nunca quede mostrando un precio desactualizado o arrastrado de
+ * una sesión con bugs previos. Ítems cuya variante ya no existe/está
+ * inactiva se retiran automáticamente.
+ */
+export async function syncCartPrices() {
+  const { items, syncFromCatalog } = useCartStore.getState();
+  const variantIds = items.map((i) => i.variantId);
+  if (variantIds.length === 0) return;
+
+  const { data } = await supabase
+    .from('product_variants')
+    .select('id, price_override, available_quantity, is_active, products(base_price, is_active)')
+    .in('id', variantIds);
+
+  if (!data) return;
+
+  const fresh: VariantFreshData[] = data.map((v: any) => ({
+    variantId: v.id,
+    unitPrice: v.price_override != null ? Number(v.price_override) : Number(v.products?.base_price ?? 0),
+    availableQuantity: v.available_quantity,
+    stillAvailable: !!v.is_active && !!v.products?.is_active,
+  }));
+
+  syncFromCatalog(fresh);
+}

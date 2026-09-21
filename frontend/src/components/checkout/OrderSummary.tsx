@@ -2,7 +2,7 @@ import { useCartStore } from '@/store/cartStore';
 import { formatPEN } from '@/lib/formatCurrency';
 import { Card } from '@/components/ui/Card';
 
-export function OrderSummary({ shippingCost }: { shippingCost: number }) {
+export function OrderSummary() {
   const { items, subtotal } = useCartStore();
 
   return (
@@ -20,19 +20,9 @@ export function OrderSummary({ shippingCost }: { shippingCost: number }) {
         ))}
       </div>
 
-      <div className="mt-5 space-y-2 border-t border-dashed border-ink-200 pt-4 text-sm">
-        <div className="flex justify-between text-ink-500">
-          <span>Subtotal</span>
-          <span>{formatPEN(subtotal())}</span>
-        </div>
-        <div className="flex justify-between text-ink-500">
-          <span>Envío</span>
-          <span>{formatPEN(shippingCost)}</span>
-        </div>
-        <div className="flex justify-between border-t border-ink-100 pt-2 text-base font-extrabold text-ink-900">
-          <span>Total</span>
-          <span className="text-brand-600">{formatPEN(subtotal() + shippingCost)}</span>
-        </div>
+      <div className="mt-5 flex justify-between border-t border-dashed border-ink-200 pt-4 text-base font-extrabold text-ink-900">
+        <span>Total</span>
+        <span className="text-brand-600">{formatPEN(subtotal())}</span>
       </div>
     </Card>
   );

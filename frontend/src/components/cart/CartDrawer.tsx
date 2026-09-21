@@ -1,11 +1,19 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCartStore } from '@/store/cartStore';
 import { CartItem } from './CartItem';
 import { formatPEN } from '@/lib/formatCurrency';
 import { Button } from '@/components/ui/Button';
+import { syncCartPrices } from '@/lib/syncCartPrices';
 
 export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { items, subtotal } = useCartStore();
+
+  // Refresca precio/stock contra la base real cada vez que se abre el
+  // carrito (localStorage puede traer un precio congelado de otra sesión).
+  useEffect(() => {
+    if (open) syncCartPrices();
+  }, [open]);
 
   if (!open) return null;
 

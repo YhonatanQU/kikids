@@ -1,9 +1,15 @@
+import { useEffect } from 'react';
 import { CheckoutForm } from '@/components/checkout/CheckoutForm';
 import { OrderSummary } from '@/components/checkout/OrderSummary';
-
-const SHIPPING_COST = 12;
+import { syncCartPrices } from '@/lib/syncCartPrices';
 
 export function CheckoutPage() {
+  // Refresca precio/stock del carrito contra la base real antes de pagar
+  // (el carrito persiste en localStorage y puede traer valores viejos).
+  useEffect(() => {
+    syncCartPrices();
+  }, []);
+
   return (
     <div className="bg-ink-50 px-4 py-8 md:px-8 md:py-10">
       <div className="mx-auto max-w-5xl">
@@ -15,7 +21,7 @@ export function CheckoutPage() {
             <CheckoutForm />
           </div>
           <div className="order-1 md:order-2 md:sticky md:top-20">
-            <OrderSummary shippingCost={SHIPPING_COST} />
+            <OrderSummary />
           </div>
         </div>
       </div>

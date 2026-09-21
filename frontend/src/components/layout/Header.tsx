@@ -19,9 +19,7 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b border-ink-100 bg-white/90 backdrop-blur-sm">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 md:px-8">
         <Link to="/" className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500 text-sm font-extrabold text-white shadow-soft">
-            K
-          </span>
+          <img src="/icon-192.png" alt="KIKIDS" className="h-9 w-9" />
           <span className="text-xl font-extrabold tracking-tight text-ink-900">KIKIDS</span>
         </Link>
 

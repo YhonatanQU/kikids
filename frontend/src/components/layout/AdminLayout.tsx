@@ -12,7 +12,7 @@ const ADMIN_NAV = [
 function BrandMark() {
   return (
     <span className="flex items-center gap-2">
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-sm font-extrabold text-white">K</span>
+      <img src="/icon-192.png" alt="KIKIDS" className="h-8 w-8" />
       <span className="text-lg font-extrabold tracking-tight text-ink-900">KIKIDS</span>
     </span>
   );

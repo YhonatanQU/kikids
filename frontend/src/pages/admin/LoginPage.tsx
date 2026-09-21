@@ -27,10 +27,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-brand-50 via-ink-50 to-ink-50 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-500 text-lg font-extrabold text-white shadow-soft">
-            K
-          </span>
-          <h1 className="mt-4 text-2xl font-extrabold tracking-tight text-ink-900">KIKIDS Admin</h1>
+          <img src="/logo.png" alt="KIKIDS" className="mx-auto h-24 w-auto" />
           <p className="mt-1 text-sm text-ink-500">Panel de gestión comercial</p>
         </div>
 

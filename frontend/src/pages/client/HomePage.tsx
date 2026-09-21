@@ -12,7 +12,8 @@ export function HomePage() {
   return (
     <div>
       <section className="bg-gradient-to-b from-brand-50 to-ink-50 px-4 py-14 text-center md:py-20">
-        <span className="inline-block rounded-full bg-white px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-brand-600 shadow-soft">
+        <img src="/logo.png" alt="KIKIDS" className="mx-auto h-28 w-auto md:h-36" />
+        <span className="mt-4 inline-block rounded-full bg-white px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-brand-600 shadow-soft">
           Moda infantil en Perú
         </span>
         <h1 className="mx-auto mt-5 max-w-2xl text-3xl font-extrabold tracking-tight text-ink-900 md:text-5xl">

@@ -5,3 +5,18 @@
 html {
   -webkit-tap-highlight-color: transparent;
 }
+
+body {
+  @apply bg-ink-50 text-ink-900 antialiased;
+  font-feature-settings: 'ss01' on, 'cv01' on;
+}
+
+/* Ocultar spinners de los inputs numéricos para un look más limpio */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}

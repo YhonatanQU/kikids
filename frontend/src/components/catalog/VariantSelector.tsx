@@ -14,29 +14,31 @@ export function VariantSelector({ variants, selectedVariantId, onSelect }: Props
   const sizes = [...new Set(variants.map((v) => v.size))];
 
   return (
-    <div className="space-y-3">
-      <div>
-        <p className="mb-1 text-sm font-medium text-gray-700">Talla</p>
-        <div className="flex flex-wrap gap-2">
-          {sizes.map((size) => {
-            const variantsForSize = variants.filter((v) => v.size === size);
-            const hasStock = variantsForSize.some((v) => v.availableQuantity > 0);
-            return (
-              <button
-                key={size}
-                disabled={!hasStock}
-                onClick={() => onSelect(variantsForSize[0].id)}
-                className={`rounded-md border px-3 py-1.5 text-sm ${
-                  hasStock
-                    ? 'border-gray-300 hover:border-brand-500'
-                    : 'cursor-not-allowed border-gray-100 text-gray-300 line-through'
-                } ${selectedVariantId === variantsForSize[0]?.id ? 'border-brand-600 bg-brand-50' : ''}`}
-              >
-                {size}
-              </button>
-            );
-          })}
-        </div>
+    <div>
+      <p className="mb-2 text-sm font-semibold text-ink-700">Talla</p>
+      <div className="flex flex-wrap gap-2">
+        {sizes.map((size) => {
+          const variantsForSize = variants.filter((v) => v.size === size);
+          const hasStock = variantsForSize.some((v) => v.availableQuantity > 0);
+          const isSelected = selectedVariantId === variantsForSize[0]?.id;
+          return (
+            <button
+              key={size}
+              type="button"
+              disabled={!hasStock}
+              onClick={() => onSelect(variantsForSize[0].id)}
+              className={`min-w-[3rem] rounded-xl border px-3.5 py-2 text-sm font-semibold transition-all ${
+                !hasStock
+                  ? 'cursor-not-allowed border-ink-100 text-ink-300 line-through'
+                  : isSelected
+                    ? 'border-brand-500 bg-brand-500 text-white shadow-soft'
+                    : 'border-ink-200 text-ink-700 hover:border-brand-400'
+              }`}
+            >
+              {size}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,5 +1,10 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { useSeasons, useCategories } from '@/hooks/useCategories';
+import { Card } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Button } from '@/components/ui/Button';
 import type { Gender } from '@/types/catalog';
 
 interface VariantDraft {
@@ -14,25 +19,32 @@ interface Props {
   onSaved: () => void;
 }
 
+const emptyVariant = (): VariantDraft => ({ size: '', color: '', colorHex: '#000000', stockQuantity: 0, sku: '' });
+
 /**
  * Alta/edición de producto con sus variantes (talla/color/stock) en un
  * solo formulario. La carga masiva de imágenes va a Supabase Storage
  * (bucket "product-images") y luego se registran las URLs en product_images.
  */
 export function ProductForm({ onSaved }: Props) {
+  const seasons = useSeasons();
+  const categories = useCategories();
   const [name, setName] = useState('');
   const [basePrice, setBasePrice] = useState(0);
   const [gender, setGender] = useState<Gender>('nino');
   const [seasonId, setSeasonId] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [variants, setVariants] = useState<VariantDraft[]>([
-    { size: '', color: '', colorHex: '#000000', stockQuantity: 0, sku: '' },
-  ]);
+  const [variants, setVariants] = useState<VariantDraft[]>([emptyVariant()]);
   const [images, setImages] = useState<FileList | null>(null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function addVariantRow() {
-    setVariants((prev) => [...prev, { size: '', color: '', colorHex: '#000000', stockQuantity: 0, sku: '' }]);
+    setVariants((prev) => [...prev, emptyVariant()]);
+  }
+
+  function removeVariantRow(index: number) {
+    setVariants((prev) => prev.filter((_, i) => i !== index));
   }
 
   function updateVariant(index: number, patch: Partial<VariantDraft>) {
@@ -42,6 +54,7 @@ export function ProductForm({ onSaved }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    setError(null);
 
     const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
@@ -53,7 +66,7 @@ export function ProductForm({ onSaved }: Props) {
 
     if (productError || !product) {
       setSaving(false);
-      alert(productError?.message ?? 'Error al crear el producto');
+      setError(productError?.message ?? 'Error al crear el producto');
       return;
     }
 
@@ -84,58 +97,101 @@ export function ProductForm({ onSaved }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-gray-100 bg-white p-6">
-      <input required placeholder="Nombre del producto" value={name} onChange={(e) => setName(e.target.value)}
-        className="w-full rounded-md border border-gray-300 px-3 py-2" />
-
-      <div className="grid grid-cols-3 gap-3">
-        <input required type="number" placeholder="Precio base (S/)" value={basePrice}
-          onChange={(e) => setBasePrice(Number(e.target.value))}
-          className="rounded-md border border-gray-300 px-3 py-2" />
-        <select value={gender} onChange={(e) => setGender(e.target.value as Gender)}
-          className="rounded-md border border-gray-300 px-3 py-2">
-          <option value="nino">Niño</option>
-          <option value="nina">Niña</option>
-          <option value="bebe">Bebé</option>
-          <option value="unisex">Unisex</option>
-        </select>
-        <input required placeholder="ID de temporada" value={seasonId} onChange={(e) => setSeasonId(e.target.value)}
-          className="rounded-md border border-gray-300 px-3 py-2" />
-      </div>
-
-      <input required placeholder="ID de categoría" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}
-        className="w-full rounded-md border border-gray-300 px-3 py-2" />
-
-      <div>
-        <p className="mb-2 font-medium">Variantes (talla / color / stock)</p>
-        {variants.map((v, i) => (
-          <div key={i} className="mb-2 grid grid-cols-5 gap-2">
-            <input placeholder="Talla" value={v.size} onChange={(e) => updateVariant(i, { size: e.target.value })}
-              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm" />
-            <input placeholder="Color" value={v.color} onChange={(e) => updateVariant(i, { color: e.target.value })}
-              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm" />
-            <input type="color" value={v.colorHex} onChange={(e) => updateVariant(i, { colorHex: e.target.value })}
-              className="h-9 rounded-md border border-gray-300" />
-            <input type="number" placeholder="Stock" value={v.stockQuantity}
-              onChange={(e) => updateVariant(i, { stockQuantity: Number(e.target.value) })}
-              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm" />
-            <input placeholder="SKU" value={v.sku} onChange={(e) => updateVariant(i, { sku: e.target.value })}
-              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm" />
+    <Card className="p-6 sm:p-7">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <h3 className="text-sm font-bold uppercase tracking-wide text-ink-400">Datos generales</h3>
+          <div className="mt-3 space-y-4">
+            <Input
+              label="Nombre del producto"
+              required
+              placeholder="Polo estampado dinosaurio"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <Input
+                label="Precio base (S/)"
+                required
+                type="number"
+                min={0}
+                step="0.10"
+                value={basePrice}
+                onChange={(e) => setBasePrice(Number(e.target.value))}
+              />
+              <Select label="Género" value={gender} onChange={(e) => setGender(e.target.value as Gender)}>
+                <option value="nino">Niño</option>
+                <option value="nina">Niña</option>
+                <option value="bebe">Bebé</option>
+                <option value="unisex">Unisex</option>
+              </Select>
+              <Select label="Temporada" required value={seasonId} onChange={(e) => setSeasonId(e.target.value)}>
+                <option value="" disabled>Selecciona</option>
+                {seasons.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </Select>
+            </div>
+            <Select label="Categoría" required value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+              <option value="" disabled>Selecciona</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </Select>
           </div>
-        ))}
-        <button type="button" onClick={addVariantRow} className="text-sm text-brand-600">
-          + Añadir variante
-        </button>
-      </div>
+        </div>
 
-      <div>
-        <p className="mb-1 font-medium">Fotos (carga múltiple)</p>
-        <input type="file" multiple accept="image/*" onChange={(e) => setImages(e.target.files)} />
-      </div>
+        <div className="border-t border-ink-100 pt-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold uppercase tracking-wide text-ink-400">Variantes (talla / color / stock)</h3>
+            <button type="button" onClick={addVariantRow} className="text-sm font-semibold text-brand-600 hover:text-brand-700">
+              + Añadir variante
+            </button>
+          </div>
+          <div className="mt-3 space-y-2">
+            {variants.map((v, i) => (
+              <div key={i} className="flex items-center gap-2 rounded-xl border border-ink-100 bg-ink-50/50 p-2.5">
+                <input placeholder="Talla" value={v.size} onChange={(e) => updateVariant(i, { size: e.target.value })}
+                  className="w-16 rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/40" />
+                <input placeholder="Color" value={v.color} onChange={(e) => updateVariant(i, { color: e.target.value })}
+                  className="w-28 flex-1 rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/40" />
+                <input type="color" value={v.colorHex} onChange={(e) => updateVariant(i, { colorHex: e.target.value })}
+                  className="h-9 w-9 shrink-0 rounded-lg border border-ink-200 bg-white p-0.5" />
+                <input type="number" placeholder="Stock" value={v.stockQuantity}
+                  onChange={(e) => updateVariant(i, { stockQuantity: Number(e.target.value) })}
+                  className="w-20 rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/40" />
+                <input placeholder="SKU" value={v.sku} onChange={(e) => updateVariant(i, { sku: e.target.value })}
+                  className="w-28 rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/40" />
+                <button type="button" onClick={() => removeVariantRow(i)} disabled={variants.length === 1}
+                  className="shrink-0 rounded-lg p-1.5 text-ink-300 hover:bg-red-50 hover:text-red-500 disabled:opacity-30 disabled:hover:bg-transparent">
+                  <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+                    <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
 
-      <button type="submit" disabled={saving} className="rounded-md bg-brand-600 px-6 py-2 font-medium text-white disabled:opacity-40">
-        {saving ? 'Guardando...' : 'Guardar producto'}
-      </button>
-    </form>
+        <div className="border-t border-ink-100 pt-5">
+          <h3 className="text-sm font-bold uppercase tracking-wide text-ink-400">Fotos</h3>
+          <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-ink-200 bg-ink-50/50 px-4 py-8 text-center transition-colors hover:border-brand-300 hover:bg-brand-50/40">
+            <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8 text-ink-300">
+              <path d="M12 16V4m0 0L7 9m5-5l5 5M5 20h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="mt-2 text-sm font-medium text-ink-600">
+              {images && images.length > 0 ? `${images.length} archivo(s) seleccionado(s)` : 'Arrastra o haz clic para subir fotos'}
+            </span>
+            <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => setImages(e.target.files)} />
+          </label>
+        </div>
+
+        {error && <div className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-600">{error}</div>}
+
+        <Button type="submit" loading={saving} size="lg">
+          Guardar producto
+        </Button>
+      </form>
+    </Card>
   );
 }

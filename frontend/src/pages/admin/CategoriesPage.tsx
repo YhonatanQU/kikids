@@ -1,4 +1,5 @@
 import { useSeasons, useCategories } from '@/hooks/useCategories';
+import { Card } from '@/components/ui/Card';
 
 export function CategoriesPage() {
   const seasons = useSeasons();
@@ -6,24 +7,28 @@ export function CategoriesPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold">Categorías / Temporadas</h1>
+      <h1 className="mb-6 text-2xl font-extrabold tracking-tight text-ink-900">Categorías / Temporadas</h1>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div className="rounded-lg bg-white p-4 shadow-sm">
-          <h2 className="mb-3 font-semibold">Temporadas / Colecciones</h2>
-          <ul className="space-y-1 text-sm">
-            {seasons.map((s) => <li key={s.id}>{s.name}</li>)}
+        <Card className="p-5">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-ink-400">Temporadas / Colecciones</h2>
+          <ul className="mt-3 divide-y divide-ink-100">
+            {seasons.map((s) => (
+              <li key={s.id} className="py-2.5 text-sm font-medium text-ink-700">{s.name}</li>
+            ))}
           </ul>
           {/* TODO: formulario de alta/edición de temporadas */}
-        </div>
+        </Card>
 
-        <div className="rounded-lg bg-white p-4 shadow-sm">
-          <h2 className="mb-3 font-semibold">Categorías de prenda</h2>
-          <ul className="space-y-1 text-sm">
-            {categories.map((c) => <li key={c.id}>{c.name}</li>)}
+        <Card className="p-5">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-ink-400">Categorías de prenda</h2>
+          <ul className="mt-3 divide-y divide-ink-100">
+            {categories.map((c) => (
+              <li key={c.id} className="py-2.5 text-sm font-medium text-ink-700">{c.name}</li>
+            ))}
           </ul>
           {/* TODO: formulario de alta/edición de categorías, con soporte parent_id */}
-        </div>
+        </Card>
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { mapProductRow } from '@/lib/mappers';
 import type { CatalogFilters, Product } from '@/types/catalog';
 
 /**
@@ -18,12 +19,16 @@ export function useProducts(filters: CatalogFilters) {
       setLoading(true);
       setError(null);
 
+      // seasons!inner / categories!inner: sin el hint !inner, PostgREST no
+      // usa estas relaciones embebidas para filtrar las filas padre, solo
+      // filtraría dentro del array embebido (ver docs de "embedded filters").
       let query = supabase
         .from('products')
         .select(
           `id, name, slug, description, category_id, season_id, gender, base_price, is_featured,
-           product_variants(id, size, color, color_hex, sku, price_override, available_quantity, is_active),
-           product_images(id, url, variant_id, is_primary)`
+           seasons!inner(slug), categories!inner(slug),
+           variants:product_variants(id, size, color, color_hex, sku, price_override, available_quantity, is_active),
+           images:product_images(id, url, variant_id, is_primary)`
         )
         .eq('is_active', true);
 
@@ -45,7 +50,7 @@ export function useProducts(filters: CatalogFilters) {
         setError(queryError.message);
         setProducts([]);
       } else {
-        setProducts((data ?? []) as unknown as Product[]);
+        setProducts((data ?? []).map(mapProductRow));
       }
       setLoading(false);
     }

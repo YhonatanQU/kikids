@@ -6,28 +6,35 @@ export function CartItem({ item }: { item: CartItemType }) {
   const { updateQuantity, removeItem } = useCartStore();
 
   return (
-    <div className="flex items-center gap-3 border-b border-gray-100 py-3">
-      {item.imageUrl && (
-        <img src={item.imageUrl} alt={item.productName} className="h-16 w-16 rounded object-cover" />
-      )}
-      <div className="flex-1">
-        <p className="text-sm font-medium">{item.productName}</p>
-        <p className="text-xs text-gray-500">Talla {item.size} · {item.color}</p>
-        <div className="mt-1 flex items-center gap-2">
-          <input
-            type="number"
-            min={1}
-            max={item.availableQuantity}
-            value={item.quantity}
-            onChange={(e) => updateQuantity(item.variantId, Number(e.target.value))}
-            className="w-14 rounded border border-gray-200 px-2 py-1 text-sm"
-          />
-          <button onClick={() => removeItem(item.variantId)} className="text-xs text-red-500">
+    <div className="flex items-center gap-3 border-b border-ink-100 py-3.5 last:border-0">
+      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-ink-100">
+        {item.imageUrl && <img src={item.imageUrl} alt={item.productName} className="h-full w-full object-cover" />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-ink-800">{item.productName}</p>
+        <p className="text-xs text-ink-400">Talla {item.size} · {item.color}</p>
+        <div className="mt-1.5 flex items-center gap-2">
+          <div className="flex items-center rounded-lg border border-ink-200">
+            <button
+              onClick={() => updateQuantity(item.variantId, item.quantity - 1)}
+              className="flex h-7 w-7 items-center justify-center text-ink-500 hover:text-ink-800"
+            >
+              −
+            </button>
+            <span className="w-6 text-center text-sm font-medium">{item.quantity}</span>
+            <button
+              onClick={() => updateQuantity(item.variantId, item.quantity + 1)}
+              className="flex h-7 w-7 items-center justify-center text-ink-500 hover:text-ink-800"
+            >
+              +
+            </button>
+          </div>
+          <button onClick={() => removeItem(item.variantId)} className="text-xs font-medium text-red-400 hover:text-red-600">
             Quitar
           </button>
         </div>
       </div>
-      <p className="text-sm font-semibold">{formatPEN(item.unitPrice * item.quantity)}</p>
+      <p className="shrink-0 text-sm font-bold text-ink-900">{formatPEN(item.unitPrice * item.quantity)}</p>
     </div>
   );
 }

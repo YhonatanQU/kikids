@@ -42,6 +42,10 @@ export interface Product {
   categoryId: string;
   seasonId: string;
   gender: Gender;
+  costPrice: number;
+  freightCost: number;
+  adminCost: number;
+  markupPercentage: number;
   basePrice: number;
   isFeatured: boolean;
   variants: ProductVariant[];

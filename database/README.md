@@ -11,6 +11,10 @@
    values ('<uuid-del-usuario>', 'Nombre del Admin', 'super_admin');
    ```
 
+## Migraciones sobre una base ya existente
+
+`schema.sql` es el script de instalación completo para un proyecto Supabase nuevo. Si tu proyecto **ya está en producción** con datos (como es el caso), los cambios posteriores al esquema se aplican como migraciones incrementales en [`migrations/`](./migrations), en orden numérico, ejecutando cada archivo una sola vez en el SQL Editor.
+
 ## Decisiones de diseño clave
 
 - **Filtro cruzado Temporada → Género → Categoría**: `products` tiene columnas directas `season_id`, `gender` (enum) y `category_id`, con un índice compuesto `idx_products_filter`. Esto permite queries tipo:

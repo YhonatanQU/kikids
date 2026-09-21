@@ -67,7 +67,16 @@ create table products (
   category_id uuid not null references categories(id),
   season_id uuid not null references seasons(id),
   gender gender_type not null,
+
+  -- Costeo: base_price (precio de venta) se calcula en el admin como
+  -- (cost_price + freight_cost + admin_cost) * (1 + markup_percentage/100)
+  -- y se guarda ya resuelto para que el catálogo público solo lea un número.
+  cost_price numeric(10,2) not null default 0 check (cost_price >= 0),
+  freight_cost numeric(10,2) not null default 0 check (freight_cost >= 0),
+  admin_cost numeric(10,2) not null default 0 check (admin_cost >= 0),
+  markup_percentage numeric(5,2) not null default 0 check (markup_percentage >= 0),
   base_price numeric(10,2) not null check (base_price >= 0),
+
   is_active boolean not null default true,
   is_featured boolean not null default false,
   created_at timestamptz not null default now(),

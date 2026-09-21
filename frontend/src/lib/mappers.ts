@@ -14,6 +14,10 @@ export function mapProductRow(row: any): Product {
     categoryId: row.category_id,
     seasonId: row.season_id,
     gender: row.gender,
+    costPrice: Number(row.cost_price ?? 0),
+    freightCost: Number(row.freight_cost ?? 0),
+    adminCost: Number(row.admin_cost ?? 0),
+    markupPercentage: Number(row.markup_percentage ?? 0),
     basePrice: Number(row.base_price),
     isFeatured: row.is_featured,
     variants: ((row.variants ?? []) as any[]).map((v): ProductVariant => ({

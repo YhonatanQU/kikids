@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { mapProductRow } from '@/lib/mappers';
+import { useRealtimeStock } from './useRealtimeStock';
 import type { CatalogFilters, Product } from '@/types/catalog';
 
 /**
@@ -60,6 +61,18 @@ export function useProducts(filters: CatalogFilters) {
       cancelled = true;
     };
   }, [filters.seasonSlug, filters.gender, filters.categorySlug, filters.size, filters.color]);
+
+  // Si dos clientes están viendo el catálogo a la vez y uno agota una
+  // talla, el otro debe ver "Agotado" sin necesidad de refrescar.
+  const handleStockChange = useCallback((variantId: string, availableQuantity: number) => {
+    setProducts((prev) =>
+      prev.map((p) => ({
+        ...p,
+        variants: p.variants.map((v) => (v.id === variantId ? { ...v, availableQuantity } : v)),
+      }))
+    );
+  }, []);
+  useRealtimeStock(handleStockChange);
 
   return { products, loading, error };
 }

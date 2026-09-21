@@ -330,7 +330,10 @@ begin
     p_shipping_address, p_shipping_district, p_shipping_city, p_shipping_reference,
     p_payment_method, 0, p_shipping_cost, p_shipping_cost,
     now() + (p_reservation_minutes || ' minutes')::interval
-  ) returning id, order_number into v_order_id, v_order_number;
+  -- Calificado con "orders." porque el OUT param de la función (order_number,
+  -- de RETURNS TABLE) tiene el mismo nombre que la columna real de la tabla:
+  -- sin calificar, Postgres tira "column reference order_number is ambiguous".
+  ) returning orders.id, orders.order_number into v_order_id, v_order_number;
 
   for v_item in select * from jsonb_array_elements(p_items)
   loop

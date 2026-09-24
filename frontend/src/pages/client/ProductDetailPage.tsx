@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { mapProductRow } from '@/lib/mappers';
@@ -22,9 +22,6 @@ export function ProductDetailPage() {
   const [added, setAdded] = useState(false);
   const [activeMedia, setActiveMedia] = useState(0);
   const [suggested, setSuggested] = useState<Product[]>([]);
-  const [showStickyPrice, setShowStickyPrice] = useState(false);
-  const priceRef = useRef<HTMLParagraphElement>(null);
-  const barRef = useRef<HTMLDivElement>(null);
   const addItem = useCartStore((s) => s.addItem);
 
   useEffect(() => {
@@ -83,42 +80,6 @@ export function ProductDetailPage() {
       cancelled = true;
     };
   }, [product?.categoryId, product?.id]);
-
-  // El precio solo se muestra en la barra fija cuando el precio original NO
-  // se ve limpio en el flujo normal: o porque ya se hizo scroll más allá
-  // (subió detrás del header) o porque —en productos con poco contenido—
-  // cae detrás de la barra fija desde el primer render, sin scroll. Con un
-  // IntersectionObserver simple ese segundo caso nunca se detectaba (el
-  // precio seguía "visible" geométricamente aunque quedara tapado por la
-  // barra), y el precio no aparecía en ningún lado.
-  useEffect(() => {
-    const HEADER_HEIGHT = 64;
-    let ticking = false;
-    function update() {
-      ticking = false;
-      const priceEl = priceRef.current;
-      const barEl = barRef.current;
-      if (!priceEl || !barEl) return;
-      const priceBottom = priceEl.getBoundingClientRect().bottom;
-      const barTop = barEl.getBoundingClientRect().top;
-      const coveredByBar = priceBottom >= barTop;
-      const scrolledPastHeader = priceBottom <= HEADER_HEIGHT;
-      setShowStickyPrice(coveredByBar || scrolledPastHeader);
-    }
-    function onScrollOrResize() {
-      if (!ticking) {
-        ticking = true;
-        requestAnimationFrame(update);
-      }
-    }
-    update();
-    window.addEventListener('scroll', onScrollOrResize, { passive: true });
-    window.addEventListener('resize', onScrollOrResize);
-    return () => {
-      window.removeEventListener('scroll', onScrollOrResize);
-      window.removeEventListener('resize', onScrollOrResize);
-    };
-  }, [product?.id]);
 
   if (!product) {
     return (
@@ -220,7 +181,7 @@ export function ProductDetailPage() {
       </div>
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight text-ink-900">{product.name}</h1>
-        <p ref={priceRef} className="mt-1.5 text-2xl font-extrabold text-brand-600">{formatPEN(product.basePrice)}</p>
+        <p className="mt-1.5 text-2xl font-extrabold text-brand-600">{formatPEN(product.basePrice)}</p>
         {product.description && <p className="mt-4 text-ink-500">{product.description}</p>}
 
         <div className="mt-6">
@@ -244,18 +205,11 @@ export function ProductDetailPage() {
         </div>
       )}
 
-      <div
-        ref={barRef}
-        className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 border-t border-ink-100 bg-white/95 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur md:bottom-0"
-      >
+      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 border-t border-ink-100 bg-white/95 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur md:bottom-0">
         <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-3 md:px-8">
           <div className="min-w-0 flex-1">
-            {showStickyPrice && (
-              <>
-                <p className="truncate text-sm font-semibold text-ink-800">{product.name}</p>
-                <p className="text-lg font-extrabold text-brand-600">{formatPEN(selectedVariant?.priceOverride ?? product.basePrice)}</p>
-              </>
-            )}
+            <p className="truncate text-sm font-semibold text-ink-800">{product.name}</p>
+            <p className="text-lg font-extrabold text-brand-600">{formatPEN(selectedVariant?.priceOverride ?? product.basePrice)}</p>
           </div>
           <Button
             onClick={handleAddToCart}

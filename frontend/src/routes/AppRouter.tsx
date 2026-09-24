@@ -15,6 +15,7 @@ import { LoginPage } from '@/pages/admin/LoginPage';
 import { DashboardPage } from '@/pages/admin/DashboardPage';
 import { ProductsPage } from '@/pages/admin/ProductsPage';
 import { OrdersPage } from '@/pages/admin/OrdersPage';
+import { OrderReceiptPage } from '@/pages/admin/OrderReceiptPage';
 import { CategoriesPage } from '@/pages/admin/CategoriesPage';
 
 import { NotFoundPage } from '@/pages/NotFoundPage';
@@ -44,6 +45,8 @@ export function AppRouter() {
               <Route path="/admin/categorias" element={<CategoriesPage />} />
               <Route path="/admin/pedidos" element={<OrdersPage />} />
             </Route>
+            {/* Fuera de AdminLayout: comprobante limpio, sin sidebar, para imprimir */}
+            <Route path="/admin/pedidos/:orderId/comprobante" element={<OrderReceiptPage />} />
           </Route>
 
           <Route path="*" element={<NotFoundPage />} />

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { mapAdminOrderItemRow } from '@/lib/mappers';
 import { ORDER_STATUS_STYLE } from '@/lib/orderStatus';
 import { formatPEN } from '@/lib/formatCurrency';
 import { sizeLabel } from '@/lib/sizes';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import type { AdminOrder, AdminOrderItem } from '@/types/order';
 
 interface Props {
@@ -24,11 +26,13 @@ export function OrderDetailDrawer({ order, onClose, onChanged }: Props) {
   const [loadingItems, setLoadingItems] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [operationNumber, setOperationNumber] = useState('');
 
   useEffect(() => {
     if (!order) return;
     setLoadingItems(true);
     setActionError(null);
+    setOperationNumber('');
     supabase
       .from('order_items')
       .select('id, product_name_snapshot, size_snapshot, color_snapshot, sku_snapshot, quantity, unit_price, subtotal')
@@ -103,6 +107,11 @@ export function OrderDetailDrawer({ order, onClose, onChanged }: Props) {
               <span className={`h-6 w-6 rounded-lg ${PAYMENT_BADGE[order.paymentMethod] ?? 'bg-ink-400'}`} />
               <span className="text-sm font-medium text-ink-700">{order.paymentMethod}</span>
             </div>
+            {order.paymentOperationNumber && (
+              <p className="mt-1.5 text-sm text-ink-500">
+                N° de operación: <span className="font-mono font-semibold text-ink-800">{order.paymentOperationNumber}</span>
+              </p>
+            )}
           </section>
         )}
 
@@ -154,9 +163,23 @@ export function OrderDetailDrawer({ order, onClose, onChanged }: Props) {
         <div className="mt-auto flex flex-col gap-2 border-t border-ink-100 pt-4">
           {order.status === 'pending_payment' && (
             <>
+              <Input
+                label="N° de operación bancaria (Yape/Plin/transferencia)"
+                placeholder="Ej. 123456789"
+                value={operationNumber}
+                onChange={(e) => setOperationNumber(e.target.value)}
+              />
               <Button
                 loading={actionLoading}
-                onClick={() => runAction(() => supabase.rpc('confirm_order_payment', { p_order_id: order.id }))}
+                disabled={!operationNumber.trim()}
+                onClick={() =>
+                  runAction(() =>
+                    supabase.rpc('confirm_order_payment', {
+                      p_order_id: order.id,
+                      p_operation_number: operationNumber.trim(),
+                    })
+                  )
+                }
               >
                 Confirmar pago
               </Button>
@@ -209,6 +232,14 @@ export function OrderDetailDrawer({ order, onClose, onChanged }: Props) {
 
           {['delivered', 'cancelled', 'expired'].includes(order.status) && (
             <p className="text-center text-xs text-ink-400">Este pedido ya no tiene acciones disponibles.</p>
+          )}
+
+          {order.status !== 'pending_payment' && (
+            <Link to={`/admin/pedidos/${order.id}/comprobante`} target="_blank" rel="noreferrer">
+              <Button variant="secondary" fullWidth>
+                Imprimir comprobante
+              </Button>
+            </Link>
           )}
         </div>
       </div>

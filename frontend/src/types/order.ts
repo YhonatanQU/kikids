@@ -42,6 +42,7 @@ export interface AdminOrder {
   shippingCity: string;
   shippingReference: string | null;
   paymentMethod: PaymentMethod | null;
+  paymentOperationNumber: string | null;
   subtotal: number;
   shippingCost: number;
   total: number;

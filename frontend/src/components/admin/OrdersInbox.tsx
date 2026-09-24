@@ -9,7 +9,7 @@ import type { AdminOrder } from '@/types/order';
 
 const SELECT_QUERY = `id, order_number, status, shipping_full_name, shipping_phone,
   shipping_address, shipping_district, shipping_city, shipping_reference,
-  payment_method, subtotal, shipping_cost, total, currency, reserved_until,
+  payment_method, payment_operation_number, subtotal, shipping_cost, total, currency, reserved_until,
   confirmed_at, created_at, customers(email)`;
 
 /** Bandeja de pedidos con Realtime: nuevos pedidos y cambios de estado aparecen sin recargar. */

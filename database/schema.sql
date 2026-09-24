@@ -189,6 +189,7 @@ create table orders (
   whatsapp_sent_at timestamptz,
   confirmed_at timestamptz,
   confirmed_by uuid references auth.users(id),
+  payment_operation_number text,
 
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -403,7 +404,7 @@ $$;
 -- 15. RPC: CONFIRMAR PAGO (admin) -> descuenta stock en firme
 -- =====================================================================
 
-create or replace function confirm_order_payment(p_order_id uuid)
+create or replace function confirm_order_payment(p_order_id uuid, p_operation_number text)
 returns void
 language plpgsql
 security definer
@@ -414,6 +415,10 @@ begin
     raise exception 'El pedido no está en estado pendiente de pago';
   end if;
 
+  if p_operation_number is null or btrim(p_operation_number) = '' then
+    raise exception 'Debes ingresar el número de operación bancaria';
+  end if;
+
   update product_variants pv
   set stock_quantity = stock_quantity - oi.quantity,
       reserved_quantity = reserved_quantity - oi.quantity
@@ -421,7 +426,8 @@ begin
   where oi.order_id = p_order_id and pv.id = oi.product_variant_id;
 
   update orders
-    set status = 'payment_confirmed', reserved_until = null, confirmed_at = now()
+    set status = 'payment_confirmed', reserved_until = null, confirmed_at = now(),
+        payment_operation_number = btrim(p_operation_number)
     where id = p_order_id;
 end;
 $$;
@@ -479,6 +485,7 @@ begin
   update orders
     set status = 'pending_payment',
         confirmed_at = null,
+        payment_operation_number = null,
         reserved_until = now() + (p_reservation_minutes || ' minutes')::interval
     where id = p_order_id;
 end;

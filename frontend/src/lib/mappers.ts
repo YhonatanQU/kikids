@@ -58,6 +58,7 @@ export function mapAdminOrderRow(row: any): AdminOrder {
     shippingCity: row.shipping_city,
     shippingReference: row.shipping_reference ?? null,
     paymentMethod: row.payment_method ?? null,
+    paymentOperationNumber: row.payment_operation_number ?? null,
     subtotal: Number(row.subtotal),
     shippingCost: Number(row.shipping_cost),
     total: Number(row.total),

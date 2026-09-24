@@ -50,6 +50,8 @@ export interface Product {
   adminCost: number;
   markupPercentage: number;
   basePrice: number;
+  discountPercentage: number;
+  discountActive: boolean;
   isFeatured: boolean;
   videoUrl: string | null;
   variants: ProductVariant[];

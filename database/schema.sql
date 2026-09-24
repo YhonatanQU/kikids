@@ -77,6 +77,13 @@ create table products (
   markup_percentage numeric(5,2) not null default 0 check (markup_percentage >= 0),
   base_price numeric(10,2) not null check (base_price >= 0),
 
+  -- Descuento opcional sobre base_price/price_override: se guarda el %
+  -- aparte de un interruptor de activación para poder prender/apagar sin
+  -- perder el valor configurado.
+  discount_percentage numeric(5,2) not null default 0
+    check (discount_percentage >= 0 and discount_percentage <= 100),
+  discount_active boolean not null default false,
+
   is_active boolean not null default true,
   is_featured boolean not null default false,
   video_url text,
@@ -346,7 +353,12 @@ begin
     end if;
 
     select pv.id, pv.stock_quantity, pv.reserved_quantity, pv.size, pv.color, pv.sku,
-           pv.product_id, coalesce(pv.price_override, p.base_price) as price,
+           pv.product_id,
+           round(
+             coalesce(pv.price_override, p.base_price)
+             * case when p.discount_active then (1 - p.discount_percentage / 100) else 1 end,
+             2
+           ) as price,
            p.name as product_name
     into v_variant
     from product_variants pv

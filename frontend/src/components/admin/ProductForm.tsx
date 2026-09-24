@@ -45,6 +45,8 @@ function blankState() {
     freightCost: 0,
     adminCost: 0,
     markupPercentage: 30,
+    discountPercentage: 0,
+    discountActive: false,
     variants: [emptyVariant()],
   };
 }
@@ -69,6 +71,8 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
   const [freightCost, setFreightCost] = useState(blankState().freightCost);
   const [adminCost, setAdminCost] = useState(blankState().adminCost);
   const [markupPercentage, setMarkupPercentage] = useState(blankState().markupPercentage);
+  const [discountPercentage, setDiscountPercentage] = useState(blankState().discountPercentage);
+  const [discountActive, setDiscountActive] = useState(blankState().discountActive);
 
   const [variants, setVariants] = useState<VariantDraft[]>(blankState().variants);
   const [deletedVariantIds, setDeletedVariantIds] = useState<string[]>([]);
@@ -96,6 +100,8 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
       setFreightCost(editingProduct.freightCost);
       setAdminCost(editingProduct.adminCost);
       setMarkupPercentage(editingProduct.markupPercentage);
+      setDiscountPercentage(editingProduct.discountPercentage);
+      setDiscountActive(editingProduct.discountActive);
       setVariants(
         editingProduct.variants.length
           ? editingProduct.variants.map((v) => ({
@@ -130,6 +136,10 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     const divisor = 1 - marginRatio;
     return divisor > 0 ? Math.round((totalCost / divisor) * 100) / 100 : 0;
   }, [totalCost, marginRatio]);
+  const discountedPrice = useMemo(() => {
+    if (!discountActive || discountPercentage <= 0) return salePrice;
+    return Math.round(salePrice * (1 - discountPercentage / 100) * 100) / 100;
+  }, [salePrice, discountActive, discountPercentage]);
 
   function addVariantRow() {
     setVariants((prev) => [...prev, emptyVariant()]);
@@ -177,6 +187,8 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     setFreightCost(blank.freightCost);
     setAdminCost(blank.adminCost);
     setMarkupPercentage(blank.markupPercentage);
+    setDiscountPercentage(blank.discountPercentage);
+    setDiscountActive(blank.discountActive);
     setVariants(blank.variants);
     setDeletedVariantIds([]);
     setExistingImages([]);
@@ -238,6 +250,8 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
       admin_cost: adminCost,
       markup_percentage: markupPercentage,
       base_price: salePrice,
+      discount_percentage: discountPercentage,
+      discount_active: discountActive,
     };
 
     let productId: string;
@@ -410,6 +424,44 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
           {markupPercentage >= 99 && (
             <p className="mt-2 text-xs text-red-500">El margen debe ser menor a 100%.</p>
           )}
+        </div>
+
+        <div className="border-t border-ink-100 pt-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Descuento</h3>
+            <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-ink-700">
+              <input
+                type="checkbox"
+                checked={discountActive}
+                onChange={(e) => setDiscountActive(e.target.checked)}
+                className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-400/40"
+              />
+              Activo
+            </label>
+          </div>
+          <div className="mt-3">
+            <Input
+              label="Descuento (%)"
+              type="number"
+              min={0}
+              max={100}
+              step="1"
+              value={discountPercentage}
+              onChange={(e) => setDiscountPercentage(Number(e.target.value))}
+            />
+          </div>
+          {discountActive && discountPercentage > 0 && (
+            <div className="mt-4 flex items-center justify-between rounded-xl bg-red-50 px-4 py-3">
+              <div>
+                <p className="text-xs font-medium text-red-700">Precio con descuento</p>
+                <p className="text-[11px] text-red-500 line-through">{formatPEN(salePrice)}</p>
+              </div>
+              <p className="text-2xl font-extrabold text-red-600">{formatPEN(discountedPrice)}</p>
+            </div>
+          )}
+          {discountPercentage < 0 || discountPercentage > 100 ? (
+            <p className="mt-2 text-xs text-red-500">El descuento debe estar entre 0 y 100%.</p>
+          ) : null}
         </div>
 
         <div className="border-t border-ink-100 pt-5">

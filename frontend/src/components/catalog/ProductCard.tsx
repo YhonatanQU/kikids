@@ -3,12 +3,15 @@ import { Link } from 'react-router-dom';
 import type { Product } from '@/types/catalog';
 import { formatPEN } from '@/lib/formatCurrency';
 import { sizeLabel } from '@/lib/sizes';
+import { effectivePriceFor } from '@/lib/pricing';
 
 type MediaItem = { type: 'image' | 'video'; url: string };
 
 export function ProductCard({ product }: { product: Product }) {
   const totalStock = product.variants.reduce((sum, v) => sum + v.availableQuantity, 0);
   const sizes = [...new Set(product.variants.map((v) => v.size))];
+  const hasDiscount = product.discountActive && product.discountPercentage > 0;
+  const finalPrice = effectivePriceFor(product);
   const media: MediaItem[] = [
     ...product.images.map((img) => ({ type: 'image' as const, url: img.url })),
     ...(product.videoUrl ? [{ type: 'video' as const, url: product.videoUrl }] : []),
@@ -125,6 +128,11 @@ export function ProductCard({ product }: { product: Product }) {
             Destacado
           </span>
         )}
+        {hasDiscount && (
+          <span className="absolute right-2 top-2 rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-bold text-white shadow-soft">
+            -{product.discountPercentage}%
+          </span>
+        )}
         {totalStock === 0 && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
             <span className="rounded-full bg-ink-900/80 px-3 py-1 text-xs font-semibold text-white">Agotado</span>
@@ -133,7 +141,14 @@ export function ProductCard({ product }: { product: Product }) {
       </div>
       <div className="p-3.5">
         <h3 className="truncate text-sm font-semibold text-ink-800 md:text-base">{product.name}</h3>
-        <p className="mt-1 font-extrabold text-brand-600">{formatPEN(product.basePrice)}</p>
+        {hasDiscount ? (
+          <p className="mt-1 flex items-baseline gap-1.5">
+            <span className="font-extrabold text-red-600">{formatPEN(finalPrice)}</span>
+            <span className="text-xs text-ink-400 line-through">{formatPEN(product.basePrice)}</span>
+          </p>
+        ) : (
+          <p className="mt-1 font-extrabold text-brand-600">{formatPEN(product.basePrice)}</p>
+        )}
         {sizes.length > 0 && (
           <p className="mt-1 truncate text-xs text-ink-400">
             Talla{sizes.length > 1 ? 's' : ''}: {sizes.map(sizeLabel).join(', ')}

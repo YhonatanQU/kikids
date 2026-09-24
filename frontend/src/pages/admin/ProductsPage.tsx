@@ -3,10 +3,11 @@ import { supabase } from '@/lib/supabaseClient';
 import { mapProductRow } from '@/lib/mappers';
 import { ProductTable } from '@/components/admin/ProductTable';
 import { ProductForm } from '@/components/admin/ProductForm';
+import { BulkDiscountBar } from '@/components/admin/BulkDiscountBar';
 import type { Product } from '@/types/catalog';
 
 const SELECT_QUERY = `id, name, slug, description, category_id, season_id, gender,
-  cost_price, freight_cost, admin_cost, markup_percentage, base_price, is_featured, video_url,
+  cost_price, freight_cost, admin_cost, markup_percentage, base_price, discount_percentage, discount_active, is_featured, video_url,
   variants:product_variants(id, size, color, color_hex, sku, price_override, stock_quantity, available_quantity, is_active),
   images:product_images(id, url, variant_id, is_primary)`;
 
@@ -14,6 +15,8 @@ export function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [applyingDiscount, setApplyingDiscount] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
 
   function loadProducts() {
@@ -57,6 +60,57 @@ export function ProductsPage() {
       return;
     }
     if (editingProduct?.id === product.id) setEditingProduct(null);
+    setSelectedIds((prev) => {
+      if (!prev.has(product.id)) return prev;
+      const next = new Set(prev);
+      next.delete(product.id);
+      return next;
+    });
+    loadProducts();
+  }
+
+  function toggleSelect(productId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) =>
+      products.length > 0 && products.every((p) => prev.has(p.id)) ? new Set() : new Set(products.map((p) => p.id))
+    );
+  }
+
+  async function applyBulkDiscount(discountPercentage: number) {
+    setApplyingDiscount(true);
+    const { error } = await supabase
+      .from('products')
+      .update({ discount_percentage: discountPercentage, discount_active: true })
+      .in('id', Array.from(selectedIds));
+    setApplyingDiscount(false);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    setSelectedIds(new Set());
+    loadProducts();
+  }
+
+  async function removeBulkDiscount() {
+    setApplyingDiscount(true);
+    const { error } = await supabase
+      .from('products')
+      .update({ discount_active: false })
+      .in('id', Array.from(selectedIds));
+    setApplyingDiscount(false);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    setSelectedIds(new Set());
     loadProducts();
   }
 
@@ -73,13 +127,25 @@ export function ProductsPage() {
             onCancelEdit={() => setEditingProduct(null)}
           />
         </div>
-        <ProductTable
-          products={products}
-          editingProductId={editingProduct?.id ?? null}
-          deletingId={deletingId}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-        />
+        <div>
+          <BulkDiscountBar
+            count={selectedIds.size}
+            applying={applyingDiscount}
+            onApply={applyBulkDiscount}
+            onRemove={removeBulkDiscount}
+            onClearSelection={() => setSelectedIds(new Set())}
+          />
+          <ProductTable
+            products={products}
+            editingProductId={editingProduct?.id ?? null}
+            deletingId={deletingId}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
+            onToggleSelectAll={toggleSelectAll}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+          />
+        </div>
       </div>
     </div>
   );

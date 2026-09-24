@@ -7,10 +7,11 @@ import { useCartStore } from '@/store/cartStore';
 import { VariantSelector } from '@/components/catalog/VariantSelector';
 import { ProductCard } from '@/components/catalog/ProductCard';
 import { formatPEN } from '@/lib/formatCurrency';
+import { effectivePriceFor } from '@/lib/pricing';
 import { Button } from '@/components/ui/Button';
 import type { Product } from '@/types/catalog';
 
-const SUGGESTED_SELECT = `id, name, slug, description, category_id, season_id, gender, base_price, is_featured, video_url,
+const SUGGESTED_SELECT = `id, name, slug, description, category_id, season_id, gender, base_price, discount_percentage, discount_active, is_featured, video_url,
      variants:product_variants(id, size, color, color_hex, sku, price_override, stock_quantity, available_quantity, is_active),
      images:product_images(id, url, variant_id, is_primary)`;
 
@@ -28,7 +29,7 @@ export function ProductDetailPage() {
     supabase
       .from('products')
       .select(
-        `id, name, slug, description, category_id, season_id, gender, base_price, is_featured, video_url,
+        `id, name, slug, description, category_id, season_id, gender, base_price, discount_percentage, discount_active, is_featured, video_url,
          variants:product_variants(id, size, color, color_hex, sku, price_override, stock_quantity, available_quantity, is_active),
          images:product_images(id, url, variant_id, is_primary)`
       )
@@ -95,6 +96,8 @@ export function ProductDetailPage() {
   }
 
   const selectedVariant = product.variants.find((v) => v.id === selectedVariantId);
+  const hasDiscount = product.discountActive && product.discountPercentage > 0;
+  const finalPrice = effectivePriceFor(product, selectedVariant);
   const media = [
     ...product.images.map((img) => ({ type: 'image' as const, url: img.url })),
     ...(product.videoUrl ? [{ type: 'video' as const, url: product.videoUrl }] : []),
@@ -110,7 +113,7 @@ export function ProductDetailPage() {
       size: selectedVariant.size,
       color: selectedVariant.color,
       sku: selectedVariant.sku,
-      unitPrice: selectedVariant.priceOverride ?? product.basePrice,
+      unitPrice: effectivePriceFor(product, selectedVariant),
       quantity: 1,
       availableQuantity: selectedVariant.availableQuantity,
       imageUrl: primaryImage?.url,
@@ -181,7 +184,17 @@ export function ProductDetailPage() {
       </div>
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight text-ink-900">{product.name}</h1>
-        <p className="mt-1.5 text-2xl font-extrabold text-brand-600">{formatPEN(product.basePrice)}</p>
+        {hasDiscount ? (
+          <div className="mt-1.5 flex items-center gap-2.5">
+            <p className="text-2xl font-extrabold text-red-600">{formatPEN(finalPrice)}</p>
+            <p className="text-lg text-ink-400 line-through">{formatPEN(product.basePrice)}</p>
+            <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+              -{product.discountPercentage}%
+            </span>
+          </div>
+        ) : (
+          <p className="mt-1.5 text-2xl font-extrabold text-brand-600">{formatPEN(product.basePrice)}</p>
+        )}
         {product.description && <p className="mt-4 text-ink-500">{product.description}</p>}
 
         <div className="mt-6">
@@ -223,7 +236,14 @@ export function ProductDetailPage() {
         <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-3 md:px-8">
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-ink-800">{product.name}</p>
-            <p className="text-lg font-extrabold text-brand-600">{formatPEN(selectedVariant?.priceOverride ?? product.basePrice)}</p>
+            {hasDiscount ? (
+              <p className="flex items-center gap-1.5">
+                <span className="text-lg font-extrabold text-red-600">{formatPEN(finalPrice)}</span>
+                <span className="text-xs text-ink-400 line-through">{formatPEN(product.basePrice)}</span>
+              </p>
+            ) : (
+              <p className="text-lg font-extrabold text-brand-600">{formatPEN(finalPrice)}</p>
+            )}
           </div>
           <Button
             onClick={handleAddToCart}

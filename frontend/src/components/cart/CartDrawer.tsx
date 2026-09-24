@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useCartStore } from '@/store/cartStore';
 import { CartItem } from './CartItem';
@@ -17,7 +18,11 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
 
   if (!open) return null;
 
-  return (
+  // Portal a document.body: el header es "sticky" y tiene backdrop-blur, lo
+  // que crea un containing block para los hijos "fixed" (mismo efecto que
+  // transform/filter) — sin el portal, este overlay quedaba encajonado
+  // dentro de la caja del header en vez de cubrir toda la pantalla.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end bg-ink-900/40 backdrop-blur-[2px]" onClick={onClose}>
       <div
         className="flex h-full w-full max-w-sm flex-col bg-white p-5 shadow-soft"
@@ -58,6 +63,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

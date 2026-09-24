@@ -191,13 +191,27 @@ export function ProductDetailPage() {
             onSelect={setSelectedVariantId}
           />
         </div>
+
+        {/* En tablet/escritorio los sugeridos van al costado, dentro de la
+            columna derecha, para que se vean sin bajar hasta el final de
+            la página; en móvil se repiten abajo a todo el ancho. */}
+        {suggested.length > 0 && (
+          <div className="mt-8 hidden md:block">
+            <h2 className="mb-3 text-base font-extrabold text-ink-900">También te puede interesar</h2>
+            <div className="grid grid-cols-2 gap-4">
+              {suggested.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       </div>
 
       {suggested.length > 0 && (
-        <div className="mx-auto max-w-5xl px-4 pb-4 pt-2 md:px-8">
-          <h2 className="mb-3 text-base font-extrabold text-ink-900 md:text-lg">También te puede interesar</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-5 lg:grid-cols-4">
+        <div className="mx-auto max-w-5xl px-4 pb-4 pt-2 md:hidden">
+          <h2 className="mb-3 text-base font-extrabold text-ink-900">También te puede interesar</h2>
+          <div className="grid grid-cols-2 gap-3">
             {suggested.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}

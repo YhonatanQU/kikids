@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { mapProductRow } from '@/lib/mappers';
@@ -22,6 +22,8 @@ export function ProductDetailPage() {
   const [added, setAdded] = useState(false);
   const [activeMedia, setActiveMedia] = useState(0);
   const [suggested, setSuggested] = useState<Product[]>([]);
+  const [showStickyPrice, setShowStickyPrice] = useState(false);
+  const priceRef = useRef<HTMLParagraphElement>(null);
   const addItem = useCartStore((s) => s.addItem);
 
   useEffect(() => {
@@ -81,6 +83,19 @@ export function ProductDetailPage() {
     };
   }, [product?.categoryId, product?.id]);
 
+  // El precio solo se muestra en la barra fija cuando el precio original
+  // (junto al título) ya salió de la pantalla, para no duplicarlo.
+  useEffect(() => {
+    const el = priceRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowStickyPrice(!entry.isIntersecting),
+      { rootMargin: '-64px 0px 0px 0px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [product?.id]);
+
   if (!product) {
     return (
       <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 px-4 py-8 md:grid-cols-2 md:px-8">
@@ -133,12 +148,13 @@ export function ProductDetailPage() {
         <button
           type="button"
           onClick={handleBack}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-ink-100 bg-white text-ink-600 shadow-soft transition-colors hover:bg-ink-50 hover:text-ink-900"
+          className="group inline-flex items-center gap-1.5 rounded-full border border-ink-100 bg-white/90 py-2 pl-2.5 pr-4 text-sm font-semibold text-ink-600 shadow-soft backdrop-blur-sm transition-all hover:-translate-x-0.5 hover:border-ink-200 hover:text-ink-900 hover:shadow-card"
           aria-label="Volver"
         >
-          <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+          <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4 transition-transform group-hover:-translate-x-0.5">
             <path d="M12 15l-5-5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
+          Volver
         </button>
       </div>
       <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 px-4 py-6 md:grid-cols-2 md:px-8">
@@ -180,7 +196,7 @@ export function ProductDetailPage() {
       </div>
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight text-ink-900">{product.name}</h1>
-        <p className="mt-1.5 text-2xl font-extrabold text-brand-600">{formatPEN(product.basePrice)}</p>
+        <p ref={priceRef} className="mt-1.5 text-2xl font-extrabold text-brand-600">{formatPEN(product.basePrice)}</p>
         {product.description && <p className="mt-4 text-ink-500">{product.description}</p>}
 
         <div className="mt-6">
@@ -207,8 +223,12 @@ export function ProductDetailPage() {
       <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 border-t border-ink-100 bg-white/95 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur md:bottom-0">
         <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-3 md:px-8">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-ink-800">{product.name}</p>
-            <p className="text-lg font-extrabold text-brand-600">{formatPEN(selectedVariant?.priceOverride ?? product.basePrice)}</p>
+            {showStickyPrice && (
+              <>
+                <p className="truncate text-sm font-semibold text-ink-800">{product.name}</p>
+                <p className="text-lg font-extrabold text-brand-600">{formatPEN(selectedVariant?.priceOverride ?? product.basePrice)}</p>
+              </>
+            )}
           </div>
           <Button
             onClick={handleAddToCart}

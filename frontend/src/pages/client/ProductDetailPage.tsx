@@ -24,6 +24,7 @@ export function ProductDetailPage() {
   const [suggested, setSuggested] = useState<Product[]>([]);
   const [showStickyPrice, setShowStickyPrice] = useState(false);
   const priceRef = useRef<HTMLParagraphElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
   const addItem = useCartStore((s) => s.addItem);
 
   useEffect(() => {
@@ -83,17 +84,40 @@ export function ProductDetailPage() {
     };
   }, [product?.categoryId, product?.id]);
 
-  // El precio solo se muestra en la barra fija cuando el precio original
-  // (junto al título) ya salió de la pantalla, para no duplicarlo.
+  // El precio solo se muestra en la barra fija cuando el precio original NO
+  // se ve limpio en el flujo normal: o porque ya se hizo scroll más allá
+  // (subió detrás del header) o porque —en productos con poco contenido—
+  // cae detrás de la barra fija desde el primer render, sin scroll. Con un
+  // IntersectionObserver simple ese segundo caso nunca se detectaba (el
+  // precio seguía "visible" geométricamente aunque quedara tapado por la
+  // barra), y el precio no aparecía en ningún lado.
   useEffect(() => {
-    const el = priceRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setShowStickyPrice(!entry.isIntersecting),
-      { rootMargin: '-64px 0px 0px 0px' }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    const HEADER_HEIGHT = 64;
+    let ticking = false;
+    function update() {
+      ticking = false;
+      const priceEl = priceRef.current;
+      const barEl = barRef.current;
+      if (!priceEl || !barEl) return;
+      const priceBottom = priceEl.getBoundingClientRect().bottom;
+      const barTop = barEl.getBoundingClientRect().top;
+      const coveredByBar = priceBottom >= barTop;
+      const scrolledPastHeader = priceBottom <= HEADER_HEIGHT;
+      setShowStickyPrice(coveredByBar || scrolledPastHeader);
+    }
+    function onScrollOrResize() {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(update);
+      }
+    }
+    update();
+    window.addEventListener('scroll', onScrollOrResize, { passive: true });
+    window.addEventListener('resize', onScrollOrResize);
+    return () => {
+      window.removeEventListener('scroll', onScrollOrResize);
+      window.removeEventListener('resize', onScrollOrResize);
+    };
   }, [product?.id]);
 
   if (!product) {
@@ -220,7 +244,10 @@ export function ProductDetailPage() {
         </div>
       )}
 
-      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 border-t border-ink-100 bg-white/95 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur md:bottom-0">
+      <div
+        ref={barRef}
+        className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 border-t border-ink-100 bg-white/95 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur md:bottom-0"
+      >
         <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-3 md:px-8">
           <div className="min-w-0 flex-1">
             {showStickyPrice && (

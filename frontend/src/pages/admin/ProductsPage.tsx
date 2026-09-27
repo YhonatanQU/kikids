@@ -14,6 +14,7 @@ const SELECT_QUERY = `id, name, slug, description, category_id, season_id, gende
 export function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [applyingDiscount, setApplyingDiscount] = useState(false);
@@ -31,11 +32,24 @@ export function ProductsPage() {
 
   function handleEdit(product: Product) {
     setEditingProduct(product);
+    setFormOpen(true);
     formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function handleNewProduct() {
+    setEditingProduct(null);
+    setFormOpen(true);
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function handleCloseForm() {
+    setEditingProduct(null);
+    setFormOpen(false);
   }
 
   function handleSaved() {
     setEditingProduct(null);
+    setFormOpen(false);
     loadProducts();
   }
 
@@ -116,17 +130,35 @@ export function ProductsPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-extrabold tracking-tight text-ink-900">Productos</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink-900">Productos</h1>
+        {!formOpen && (
+          <button
+            type="button"
+            onClick={handleNewProduct}
+            className="flex items-center gap-1.5 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-soft hover:bg-brand-600"
+          >
+            <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+              <path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            Nuevo producto
+          </button>
+        )}
+      </div>
 
-      {/* Pantalla grande: formulario a la izquierda, listado a la derecha (siempre visibles). */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[440px_1fr] xl:items-start">
-        <div ref={formRef} className="xl:sticky xl:top-6">
-          <ProductForm
-            editingProduct={editingProduct}
-            onSaved={handleSaved}
-            onCancelEdit={() => setEditingProduct(null)}
-          />
-        </div>
+      {/* Pantalla grande: formulario a la izquierda, listado a la derecha —
+          el formulario solo aparece al crear/editar; el resto del tiempo
+          solo se ve la tabla a todo el ancho. */}
+      <div className={formOpen ? 'grid grid-cols-1 gap-6 xl:grid-cols-[440px_1fr] xl:items-start' : ''}>
+        {formOpen && (
+          <div ref={formRef} className="xl:sticky xl:top-6">
+            <ProductForm
+              editingProduct={editingProduct}
+              onSaved={handleSaved}
+              onCancelEdit={handleCloseForm}
+            />
+          </div>
+        )}
         <div>
           <BulkDiscountBar
             count={selectedIds.size}

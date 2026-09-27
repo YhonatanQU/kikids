@@ -343,9 +343,9 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     <Card className="p-6 sm:p-7">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-bold text-ink-900">{isEditing ? 'Editar producto' : 'Registrar producto'}</h2>
-        {isEditing && (
+        {onCancelEdit && (
           <button type="button" onClick={onCancelEdit} className="text-sm font-medium text-ink-400 hover:text-ink-700">
-            Cancelar
+            {isEditing ? 'Cancelar' : 'Cerrar'}
           </button>
         )}
       </div>
@@ -613,9 +613,9 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
           <Button type="submit" loading={saving} size="lg" fullWidth>
             {isEditing ? 'Guardar cambios' : 'Guardar producto'}
           </Button>
-          {isEditing && (
+          {onCancelEdit && (
             <Button type="button" variant="secondary" size="lg" onClick={onCancelEdit}>
-              Cancelar
+              {isEditing ? 'Cancelar' : 'Cerrar'}
             </Button>
           )}
         </div>

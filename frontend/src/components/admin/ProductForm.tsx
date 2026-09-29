@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useSeasons, useCategories } from '@/hooks/useCategories';
-import { KIDS_SIZES } from '@/lib/sizes';
+import { KIDS_SIZES, sizeLabel } from '@/lib/sizes';
 import { formatPEN } from '@/lib/formatCurrency';
+import { decodeImageFilename, type DecodedImageSku } from '@/lib/skuDecoder';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -25,6 +26,12 @@ interface Props {
 }
 
 const MAX_PHOTOS = 3;
+
+const STEPS = [
+  { id: 1, label: 'Fotos y video' },
+  { id: 2, label: 'Datos y costeo' },
+  { id: 3, label: 'Variantes' },
+] as const;
 
 const emptyVariant = (): VariantDraft => ({
   size: KIDS_SIZES[0].value,
@@ -52,14 +59,18 @@ function blankState() {
 }
 
 /**
- * Alta/edición de producto: datos generales, costeo (precio de venta
- * calculado), clasificación, variantes (talla/color/stock) y fotos.
- * La carga masiva de imágenes va a Supabase Storage (bucket "product-images").
+ * Alta/edición de producto en 3 pasos: (1) fotos/video — con detección
+ * automática de temporada/talla/precio de compra/SKU a partir del nombre
+ * de la primera foto, (2) datos, clasificación, costeo y descuento, y
+ * (3) variantes (talla/color/stock) + guardar. La carga de imágenes va a
+ * Supabase Storage (bucket "product-images").
  */
 export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
   const seasons = useSeasons();
   const categories = useCategories();
   const isEditing = !!editingProduct;
+
+  const [step, setStep] = useState<1 | 2 | 3>(1);
 
   const [name, setName] = useState(blankState().name);
   const [description, setDescription] = useState(blankState().description);
@@ -80,6 +91,10 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
   const [existingImages, setExistingImages] = useState<ProductImage[]>([]);
   const [deletedImageIds, setDeletedImageIds] = useState<string[]>([]);
   const [images, setImages] = useState<FileList | null>(null);
+  const [imagePreviews, setImagePreviews] = useState<{ file: File; url: string }[]>([]);
+
+  const [decoded, setDecoded] = useState<DecodedImageSku | null>(null);
+  const [useImageDetails, setUseImageDetails] = useState(true);
 
   const [existingVideoUrl, setExistingVideoUrl] = useState<string | null>(null);
   const [deleteExistingVideo, setDeleteExistingVideo] = useState(false);
@@ -118,14 +133,49 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
       setDeletedVariantIds([]);
       setDeletedImageIds([]);
       setImages(null);
+      setDecoded(null);
       setExistingVideoUrl(editingProduct.videoUrl);
       setDeleteExistingVideo(false);
       setVideoFile(null);
       setError(null);
+      setStep(1);
     } else {
       resetForm();
     }
   }, [editingProduct]);
+
+  // Vistas previas de las fotos nuevas seleccionadas (con su nombre de
+  // archivo debajo) — se liberan los object URLs al reemplazar la selección.
+  useEffect(() => {
+    const list = images ? Array.from(images).map((file) => ({ file, url: URL.createObjectURL(file) })) : [];
+    setImagePreviews(list);
+    return () => {
+      list.forEach((p) => URL.revokeObjectURL(p.url));
+    };
+  }, [images]);
+
+  // Aplica los datos detectados en el nombre de la primera foto a los
+  // campos correspondientes mientras el check "Usar detalles de la
+  // imagen" esté activo.
+  useEffect(() => {
+    if (!decoded || !useImageDetails) return;
+    if (decoded.seasonSlug) {
+      const season = seasons.find((s) => s.slug === decoded.seasonSlug);
+      if (season) setSeasonId(season.id);
+    }
+    setCostPrice(decoded.costPrice);
+    setVariants((prev) =>
+      prev.map((v, i) =>
+        i === 0
+          ? {
+              ...v,
+              size: KIDS_SIZES.some((s) => s.value === decoded.sizeDigit) ? decoded.sizeDigit : v.size,
+              sku: decoded.sku,
+            }
+          : v
+      )
+    );
+  }, [decoded, useImageDetails, seasons]);
 
   // Precio de venta = costo_total / (1 - margen%). Es margen (% sobre el
   // precio de venta), no markup (% sobre el costo) — ej. margen 30% y
@@ -165,6 +215,7 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
   function handlePhotosSelected(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) {
       setImages(null);
+      setDecoded(null);
       return;
     }
     const remaining = Math.max(MAX_PHOTOS - existingImages.length, 0);
@@ -174,6 +225,17 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     const dt = new DataTransfer();
     Array.from(fileList).slice(0, remaining).forEach((f) => dt.items.add(f));
     setImages(dt.files.length > 0 ? dt.files : null);
+    setDecoded(dt.files.length > 0 ? decodeImageFilename(dt.files[0].name) : null);
+  }
+
+  /** Check desactivado: quita del formulario lo que se había autocompletado. */
+  function handleToggleUseImageDetails(checked: boolean) {
+    setUseImageDetails(checked);
+    if (!checked) {
+      setSeasonId('');
+      setCostPrice(0);
+      setVariants((prev) => prev.map((v, i) => (i === 0 ? { ...v, size: KIDS_SIZES[0].value, sku: '' } : v)));
+    }
   }
 
   function resetForm() {
@@ -194,9 +256,12 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     setExistingImages([]);
     setDeletedImageIds([]);
     setImages(null);
+    setDecoded(null);
+    setUseImageDetails(true);
     setExistingVideoUrl(null);
     setDeleteExistingVideo(false);
     setVideoFile(null);
+    setStep(1);
   }
 
   /** Devuelve mensajes de error (si los hay) en vez de tragárselos en
@@ -339,6 +404,8 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     }
   }
 
+  const totalPhotos = existingImages.length + (images?.length ?? 0);
+
   return (
     <Card className="p-6 sm:p-7">
       <div className="flex items-center justify-between">
@@ -349,201 +416,130 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
           </button>
         )}
       </div>
-      <form onSubmit={handleSubmit} className="mt-5 space-y-6">
-        <div>
-          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Datos generales</h3>
-          <div className="mt-3 space-y-4">
-            <Input
-              label="Nombre del producto"
-              required
-              placeholder="Polo estampado dinosaurio"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-ink-700">Descripción del producto</label>
-              <textarea
-                rows={3}
-                placeholder="Tela 100% algodón, estampado frontal, cuello redondo..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full resize-none rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-400/40 focus:border-brand-400"
-              />
-            </div>
-          </div>
-        </div>
 
-        <div className="border-t border-ink-100 pt-5">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Costeo y precio de venta</h3>
-          <div className="mt-3 grid grid-cols-2 gap-4">
-            <Input
-              label="Precio de compra (S/)"
-              required
-              type="number"
-              min={0}
-              step="0.10"
-              value={costPrice}
-              onChange={(e) => setCostPrice(Number(e.target.value))}
-            />
-            <Input
-              label="Flete por prenda (S/)"
-              type="number"
-              min={0}
-              step="0.10"
-              value={freightCost}
-              onChange={(e) => setFreightCost(Number(e.target.value))}
-            />
-            <Input
-              label="Gastos administrativos (S/)"
-              type="number"
-              min={0}
-              step="0.10"
-              value={adminCost}
-              onChange={(e) => setAdminCost(Number(e.target.value))}
-            />
-            <Input
-              label="Margen (%)"
-              required
-              type="number"
-              min={0}
-              step="1"
-              value={markupPercentage}
-              onChange={(e) => setMarkupPercentage(Number(e.target.value))}
-            />
-          </div>
-
-          <div className="mt-4 flex items-center justify-between rounded-xl bg-brand-50 px-4 py-3">
-            <div>
-              <p className="text-xs font-medium text-brand-700">Precio de venta (calculado)</p>
-              <p className="text-[11px] text-brand-500">
-                {formatPEN(totalCost)} ÷ (1 − {markupPercentage}%)
-              </p>
-            </div>
-            <p className="text-2xl font-extrabold text-brand-700">{formatPEN(salePrice)}</p>
-          </div>
-          {markupPercentage >= 99 && (
-            <p className="mt-2 text-xs text-red-500">El margen debe ser menor a 100%.</p>
-          )}
-        </div>
-
-        <div className="border-t border-ink-100 pt-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Descuento</h3>
-            <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-ink-700">
-              <input
-                type="checkbox"
-                checked={discountActive}
-                onChange={(e) => setDiscountActive(e.target.checked)}
-                className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-400/40"
-              />
-              Activo
-            </label>
-          </div>
-          <div className="mt-3">
-            <Input
-              label="Descuento (%)"
-              type="number"
-              min={0}
-              max={100}
-              step="1"
-              value={discountPercentage}
-              onChange={(e) => setDiscountPercentage(Number(e.target.value))}
-            />
-          </div>
-          {discountActive && discountPercentage > 0 && (
-            <div className="mt-4 flex items-center justify-between rounded-xl bg-red-50 px-4 py-3">
-              <div>
-                <p className="text-xs font-medium text-red-700">Precio con descuento</p>
-                <p className="text-[11px] text-red-500 line-through">{formatPEN(salePrice)}</p>
-              </div>
-              <p className="text-2xl font-extrabold text-red-600">{formatPEN(discountedPrice)}</p>
-            </div>
-          )}
-          {discountPercentage < 0 || discountPercentage > 100 ? (
-            <p className="mt-2 text-xs text-red-500">El descuento debe estar entre 0 y 100%.</p>
-          ) : null}
-        </div>
-
-        <div className="border-t border-ink-100 pt-5">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Clasificación</h3>
-          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Select label="Género" value={gender} onChange={(e) => setGender(e.target.value as Gender)}>
-              <option value="nino">Niño</option>
-              <option value="nina">Niña</option>
-              <option value="bebe">Bebé</option>
-              <option value="unisex">Unisex</option>
-            </Select>
-            <Select label="Temporada" required value={seasonId} onChange={(e) => setSeasonId(e.target.value)}>
-              <option value="" disabled>Elegir</option>
-              {seasons.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </Select>
-            <Select label="Categoría" required value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-              <option value="" disabled>Elegir</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </Select>
-          </div>
-        </div>
-
-        <div className="border-t border-ink-100 pt-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Variantes (talla / color / stock)</h3>
-            <button type="button" onClick={addVariantRow} className="text-sm font-semibold text-brand-600 hover:text-brand-700">
-              + Añadir variante
+      {/* Indicador de pasos — clicable para saltar entre pasos ya que es
+          un panel interno de admin, no un checkout de cliente. */}
+      <div className="mt-5 flex items-center">
+        {STEPS.map((s, i) => (
+          <div key={s.id} className="flex flex-1 items-center last:flex-none">
+            <button
+              type="button"
+              onClick={() => setStep(s.id)}
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors ${
+                step === s.id
+                  ? 'bg-brand-500 text-white'
+                  : step > s.id
+                    ? 'bg-brand-100 text-brand-600'
+                    : 'bg-ink-100 text-ink-400'
+              }`}
+              aria-label={`Ir al paso ${s.id}: ${s.label}`}
+            >
+              {step > s.id ? '✓' : s.id}
             </button>
-          </div>
-          <div className="mt-3 space-y-2">
-            {variants.map((v, i) => (
-              <div key={v.id ?? `new-${i}`} className="flex flex-wrap items-center gap-2 rounded-xl border border-ink-100 bg-ink-50/50 p-2.5">
-                <select value={v.size} onChange={(e) => updateVariant(i, { size: e.target.value })}
-                  className="rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/40">
-                  {/* Preserva tallas antiguas (texto libre, previas al select cerrado) que no calzan con KIDS_SIZES */}
-                  {!KIDS_SIZES.some((s) => s.value === v.size) && v.size && (
-                    <option value={v.size}>{v.size} (heredada)</option>
-                  )}
-                  {KIDS_SIZES.map((s) => (
-                    <option key={s.value} value={s.value}>{s.label}</option>
-                  ))}
-                </select>
-                <input placeholder="Color" value={v.color} onChange={(e) => updateVariant(i, { color: e.target.value })}
-                  className="w-24 flex-1 rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/40" />
-                <input type="color" value={v.colorHex} onChange={(e) => updateVariant(i, { colorHex: e.target.value })}
-                  className="h-9 w-9 shrink-0 rounded-lg border border-ink-200 bg-white p-0.5" />
-                <input type="number" placeholder="Stock" value={v.stockQuantity}
-                  onChange={(e) => updateVariant(i, { stockQuantity: Number(e.target.value) })}
-                  className="w-20 rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/40" />
-                <input placeholder="SKU" value={v.sku} onChange={(e) => updateVariant(i, { sku: e.target.value })}
-                  className="w-24 flex-1 rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/40" />
-                <button type="button" onClick={() => removeVariantRow(i)} disabled={variants.length === 1}
-                  className="shrink-0 rounded-lg p-1.5 text-ink-300 hover:bg-red-50 hover:text-red-500 disabled:opacity-30 disabled:hover:bg-transparent">
-                  <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-                    <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="border-t border-ink-100 pt-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Fotos</h3>
-            <span className="text-xs text-ink-400">
-              {existingImages.length + (images?.length ?? 0)}/{MAX_PHOTOS}
+            <span className={`ml-2 hidden text-xs font-semibold sm:block ${step === s.id ? 'text-ink-900' : 'text-ink-400'}`}>
+              {s.label}
             </span>
+            {i < STEPS.length - 1 && <div className={`mx-3 h-px flex-1 ${step > s.id ? 'bg-brand-300' : 'bg-ink-100'}`} />}
           </div>
+        ))}
+      </div>
 
-          {existingImages.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {existingImages.map((img) => (
-                <div key={img.id} className="group relative h-16 w-16 overflow-hidden rounded-lg border border-ink-100">
-                  <img src={img.url} alt="" className="h-full w-full object-cover" />
+      <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+        {step === 1 && (
+          <>
+            <div>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Fotos</h3>
+                <span className="text-xs text-ink-400">{totalPhotos}/{MAX_PHOTOS}</span>
+              </div>
+
+              {existingImages.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {existingImages.map((img) => (
+                    <div key={img.id} className="group relative h-20 w-20 overflow-hidden rounded-lg border border-ink-100">
+                      <img src={img.url} alt="" className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeExistingImage(img.id)}
+                        className="absolute inset-0 flex items-center justify-center bg-ink-900/0 text-white opacity-0 transition-opacity group-hover:bg-ink-900/50 group-hover:opacity-100"
+                      >
+                        <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+                          <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {imagePreviews.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {imagePreviews.map((p, i) => (
+                    <div key={i} className="w-20 text-center">
+                      <div className="h-20 w-20 overflow-hidden rounded-lg border border-ink-100">
+                        <img src={p.url} alt={p.file.name} className="h-full w-full object-cover" />
+                      </div>
+                      <p className="mt-1 truncate text-[10px] text-ink-400" title={p.file.name}>
+                        {p.file.name}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {totalPhotos < MAX_PHOTOS ? (
+                <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-ink-200 bg-ink-50/50 px-4 py-8 text-center transition-colors hover:border-brand-300 hover:bg-brand-50/40">
+                  <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8 text-ink-300">
+                    <path d="M12 16V4m0 0L7 9m5-5l5 5M5 20h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <span className="mt-2 text-sm font-medium text-ink-600">
+                    {imagePreviews.length > 0 ? `${imagePreviews.length} archivo(s) seleccionado(s)` : 'Arrastra o haz clic para subir fotos'}
+                  </span>
+                  <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handlePhotosSelected(e.target.files)} />
+                </label>
+              ) : (
+                <p className="mt-3 text-xs text-ink-400">Máximo de {MAX_PHOTOS} fotos alcanzado. Quita una para agregar otra.</p>
+              )}
+
+              <div className="mt-3 rounded-xl border border-ink-100 bg-ink-50/50 p-3.5">
+                <label className={`flex items-center gap-2 text-sm font-medium ${decoded ? 'cursor-pointer text-ink-700' : 'cursor-not-allowed text-ink-400'}`}>
+                  <input
+                    type="checkbox"
+                    disabled={!decoded}
+                    checked={useImageDetails}
+                    onChange={(e) => handleToggleUseImageDetails(e.target.checked)}
+                    className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-400/40 disabled:opacity-50"
+                  />
+                  Usar detalles de la imagen (temporada, talla, precio de compra y SKU)
+                </label>
+                {decoded ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+                    <span className="rounded-full bg-white px-2 py-0.5 font-medium text-ink-600 shadow-soft">SKU: {decoded.sku}</span>
+                    <span className="rounded-full bg-white px-2 py-0.5 font-medium text-ink-600 shadow-soft">{decoded.seasonLabel}</span>
+                    <span className="rounded-full bg-white px-2 py-0.5 font-medium text-ink-600 shadow-soft">
+                      Talla {sizeLabel(decoded.sizeDigit)}
+                    </span>
+                    <span className="rounded-full bg-white px-2 py-0.5 font-medium text-ink-600 shadow-soft">
+                      Compra {formatPEN(decoded.costPrice)}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="mt-1.5 text-[11px] text-ink-400">
+                    Nombra la foto como el proveedor (ej. I329-073.jpg) para detectar estos datos automáticamente.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-ink-100 pt-5">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Video del producto</h3>
+
+              {existingVideoUrl && !deleteExistingVideo ? (
+                <div className="group relative mt-3 w-40 overflow-hidden rounded-lg border border-ink-100">
+                  <video src={existingVideoUrl} className="h-24 w-full object-cover" />
                   <button
                     type="button"
-                    onClick={() => removeExistingImage(img.id)}
+                    onClick={() => setDeleteExistingVideo(true)}
                     className="absolute inset-0 flex items-center justify-center bg-ink-900/0 text-white opacity-0 transition-opacity group-hover:bg-ink-900/50 group-hover:opacity-100"
                   >
                     <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
@@ -551,74 +547,272 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
                     </svg>
                   </button>
                 </div>
-              ))}
+              ) : (
+                <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-ink-200 bg-ink-50/50 px-4 py-8 text-center transition-colors hover:border-brand-300 hover:bg-brand-50/40">
+                  <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8 text-ink-300">
+                    <path d="M15 10l4.5-2.5v9L15 14M4 6h9a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <span className="mt-2 text-sm font-medium text-ink-600">
+                    {videoFile ? videoFile.name : 'Un video (opcional)'}
+                  </span>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      setVideoFile(e.target.files?.[0] ?? null);
+                      setDeleteExistingVideo(false);
+                    }}
+                  />
+                </label>
+              )}
             </div>
-          )}
 
-          {existingImages.length + (images?.length ?? 0) < MAX_PHOTOS ? (
-            <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-ink-200 bg-ink-50/50 px-4 py-8 text-center transition-colors hover:border-brand-300 hover:bg-brand-50/40">
-              <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8 text-ink-300">
-                <path d="M12 16V4m0 0L7 9m5-5l5 5M5 20h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <span className="mt-2 text-sm font-medium text-ink-600">
-                {images && images.length > 0 ? `${images.length} archivo(s) seleccionado(s)` : 'Arrastra o haz clic para subir fotos'}
-              </span>
-              <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handlePhotosSelected(e.target.files)} />
-            </label>
-          ) : (
-            <p className="mt-3 text-xs text-ink-400">Máximo de {MAX_PHOTOS} fotos alcanzado. Quita una para agregar otra.</p>
-          )}
-        </div>
-
-        <div className="border-t border-ink-100 pt-5">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Video del producto</h3>
-
-          {existingVideoUrl && !deleteExistingVideo ? (
-            <div className="group relative mt-3 w-40 overflow-hidden rounded-lg border border-ink-100">
-              <video src={existingVideoUrl} className="h-24 w-full object-cover" />
-              <button
-                type="button"
-                onClick={() => setDeleteExistingVideo(true)}
-                className="absolute inset-0 flex items-center justify-center bg-ink-900/0 text-white opacity-0 transition-opacity group-hover:bg-ink-900/50 group-hover:opacity-100"
-              >
-                <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
-                  <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-              </button>
+            <div className="flex gap-3">
+              <Button type="button" size="lg" fullWidth onClick={() => setStep(2)}>
+                Siguiente
+              </Button>
             </div>
-          ) : (
-            <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-ink-200 bg-ink-50/50 px-4 py-8 text-center transition-colors hover:border-brand-300 hover:bg-brand-50/40">
-              <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8 text-ink-300">
-                <path d="M15 10l4.5-2.5v9L15 14M4 6h9a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <span className="mt-2 text-sm font-medium text-ink-600">
-                {videoFile ? videoFile.name : 'Un video (opcional)'}
-              </span>
-              <input
-                type="file"
-                accept="video/*"
-                className="hidden"
-                onChange={(e) => {
-                  setVideoFile(e.target.files?.[0] ?? null);
-                  setDeleteExistingVideo(false);
-                }}
-              />
-            </label>
-          )}
-        </div>
+          </>
+        )}
 
-        {error && <div className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-600">{error}</div>}
+        {step === 2 && (
+          <>
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Datos generales</h3>
+              <div className="mt-3 space-y-4">
+                <Input
+                  label="Nombre del producto"
+                  required
+                  placeholder="Polo estampado dinosaurio"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-ink-700">Descripción del producto</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Tela 100% algodón, estampado frontal, cuello redondo..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full resize-none rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-400/40 focus:border-brand-400"
+                  />
+                </div>
+              </div>
+            </div>
 
-        <div className="flex gap-3">
-          <Button type="submit" loading={saving} size="lg" fullWidth>
-            {isEditing ? 'Guardar cambios' : 'Guardar producto'}
-          </Button>
-          {onCancelEdit && (
-            <Button type="button" variant="secondary" size="lg" onClick={onCancelEdit}>
-              {isEditing ? 'Cancelar' : 'Cerrar'}
-            </Button>
-          )}
-        </div>
+            <div className="border-t border-ink-100 pt-5">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Clasificación</h3>
+              <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <Select label="Género" value={gender} onChange={(e) => setGender(e.target.value as Gender)}>
+                  <option value="nino">Niño</option>
+                  <option value="nina">Niña</option>
+                  <option value="bebe">Bebé</option>
+                  <option value="unisex">Unisex</option>
+                </Select>
+                <div>
+                  <Select label="Temporada" required value={seasonId} onChange={(e) => setSeasonId(e.target.value)}>
+                    <option value="" disabled>Elegir</option>
+                    {seasons.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </Select>
+                  {decoded && useImageDetails && decoded.seasonSlug && (
+                    <p className="mt-1 text-[11px] text-brand-600">Detectado de la foto</p>
+                  )}
+                </div>
+                <Select label="Categoría" required value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+                  <option value="" disabled>Elegir</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+
+            <div className="border-t border-ink-100 pt-5">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Costeo y precio de venta</h3>
+              <div className="mt-3 grid grid-cols-2 gap-4">
+                <div>
+                  <Input
+                    label="Precio de compra (S/)"
+                    required
+                    type="number"
+                    min={0}
+                    step="0.10"
+                    value={costPrice}
+                    onChange={(e) => setCostPrice(Number(e.target.value))}
+                  />
+                  {decoded && useImageDetails && (
+                    <p className="mt-1 text-[11px] text-brand-600">Detectado de la foto</p>
+                  )}
+                </div>
+                <Input
+                  label="Flete por prenda (S/)"
+                  type="number"
+                  min={0}
+                  step="0.10"
+                  value={freightCost}
+                  onChange={(e) => setFreightCost(Number(e.target.value))}
+                />
+                <Input
+                  label="Gastos administrativos (S/)"
+                  type="number"
+                  min={0}
+                  step="0.10"
+                  value={adminCost}
+                  onChange={(e) => setAdminCost(Number(e.target.value))}
+                />
+                <Input
+                  label="Margen (%)"
+                  required
+                  type="number"
+                  min={0}
+                  step="1"
+                  value={markupPercentage}
+                  onChange={(e) => setMarkupPercentage(Number(e.target.value))}
+                />
+              </div>
+
+              <div className="mt-4 flex items-center justify-between rounded-xl bg-brand-50 px-4 py-3">
+                <div>
+                  <p className="text-xs font-medium text-brand-700">Precio de venta (calculado)</p>
+                  <p className="text-[11px] text-brand-500">
+                    {formatPEN(totalCost)} ÷ (1 − {markupPercentage}%)
+                  </p>
+                </div>
+                <p className="text-2xl font-extrabold text-brand-700">{formatPEN(salePrice)}</p>
+              </div>
+              {markupPercentage >= 99 && (
+                <p className="mt-2 text-xs text-red-500">El margen debe ser menor a 100%.</p>
+              )}
+            </div>
+
+            <div className="border-t border-ink-100 pt-5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Descuento</h3>
+                <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-ink-700">
+                  <input
+                    type="checkbox"
+                    checked={discountActive}
+                    onChange={(e) => setDiscountActive(e.target.checked)}
+                    className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-400/40"
+                  />
+                  Activo
+                </label>
+              </div>
+              <div className="mt-3">
+                <Input
+                  label="Descuento (%)"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="1"
+                  value={discountPercentage}
+                  onChange={(e) => setDiscountPercentage(Number(e.target.value))}
+                />
+              </div>
+              {discountActive && discountPercentage > 0 && (
+                <div className="mt-4 flex items-center justify-between rounded-xl bg-red-50 px-4 py-3">
+                  <div>
+                    <p className="text-xs font-medium text-red-700">Precio con descuento</p>
+                    <p className="text-[11px] text-red-500 line-through">{formatPEN(salePrice)}</p>
+                  </div>
+                  <p className="text-2xl font-extrabold text-red-600">{formatPEN(discountedPrice)}</p>
+                </div>
+              )}
+              {discountPercentage < 0 || discountPercentage > 100 ? (
+                <p className="mt-2 text-xs text-red-500">El descuento debe estar entre 0 y 100%.</p>
+              ) : null}
+            </div>
+
+            <div className="flex gap-3">
+              <Button type="button" variant="secondary" size="lg" onClick={() => setStep(1)}>
+                Atrás
+              </Button>
+              <Button type="button" size="lg" fullWidth onClick={() => setStep(3)}>
+                Siguiente
+              </Button>
+            </div>
+          </>
+        )}
+
+        {step === 3 && (
+          <>
+            <div>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Variantes (talla / color / stock)</h3>
+                <button type="button" onClick={addVariantRow} className="text-sm font-semibold text-brand-600 hover:text-brand-700">
+                  + Añadir variante
+                </button>
+              </div>
+              <div className="mt-3 space-y-2">
+                {variants.map((v, i) => (
+                  <div key={v.id ?? `new-${i}`} className="flex flex-wrap items-center gap-2 rounded-xl border border-ink-100 bg-ink-50/50 p-2.5">
+                    <select value={v.size} onChange={(e) => updateVariant(i, { size: e.target.value })}
+                      className="rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/40">
+                      {/* Preserva tallas antiguas (texto libre, previas al select cerrado) que no calzan con KIDS_SIZES */}
+                      {!KIDS_SIZES.some((s) => s.value === v.size) && v.size && (
+                        <option value={v.size}>{v.size} (heredada)</option>
+                      )}
+                      {KIDS_SIZES.map((s) => (
+                        <option key={s.value} value={s.value}>{s.label}</option>
+                      ))}
+                    </select>
+                    <input placeholder="Color" value={v.color} onChange={(e) => updateVariant(i, { color: e.target.value })}
+                      className="w-24 flex-1 rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/40" />
+                    <input type="color" value={v.colorHex} onChange={(e) => updateVariant(i, { colorHex: e.target.value })}
+                      className="h-9 w-9 shrink-0 rounded-lg border border-ink-200 bg-white p-0.5" />
+                    <input type="number" placeholder="Stock" value={v.stockQuantity}
+                      onChange={(e) => updateVariant(i, { stockQuantity: Number(e.target.value) })}
+                      className="w-20 rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/40" />
+                    <input placeholder="SKU" value={v.sku} onChange={(e) => updateVariant(i, { sku: e.target.value })}
+                      className="w-24 flex-1 rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/40" />
+                    <button type="button" onClick={() => removeVariantRow(i)} disabled={variants.length === 1}
+                      className="shrink-0 rounded-lg p-1.5 text-ink-300 hover:bg-red-50 hover:text-red-500 disabled:opacity-30 disabled:hover:bg-transparent">
+                      <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+                        <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {decoded && useImageDetails && (
+                <p className="mt-2 text-[11px] text-brand-600">Talla y SKU de la primera variante detectados de la foto</p>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-ink-100 bg-ink-50/50 p-4">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Resumen</h3>
+              <div className="mt-2 space-y-1 text-sm text-ink-700">
+                <p><span className="text-ink-400">Producto:</span> {name || '—'}</p>
+                <p><span className="text-ink-400">Fotos:</span> {totalPhotos}/{MAX_PHOTOS}</p>
+                <p>
+                  <span className="text-ink-400">Precio de venta:</span>{' '}
+                  {discountActive && discountPercentage > 0 ? (
+                    <>
+                      <span className="font-semibold text-red-600">{formatPEN(discountedPrice)}</span>{' '}
+                      <span className="text-ink-400 line-through">{formatPEN(salePrice)}</span>
+                    </>
+                  ) : (
+                    <span className="font-semibold">{formatPEN(salePrice)}</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {error && <div className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-600">{error}</div>}
+
+            <div className="flex gap-3">
+              <Button type="button" variant="secondary" size="lg" onClick={() => setStep(2)}>
+                Atrás
+              </Button>
+              <Button type="submit" loading={saving} size="lg" fullWidth>
+                {isEditing ? 'Guardar cambios' : 'Guardar producto'}
+              </Button>
+            </div>
+          </>
+        )}
       </form>
     </Card>
   );

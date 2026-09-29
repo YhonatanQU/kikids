@@ -29,15 +29,16 @@ const MAX_PHOTOS = 3;
 
 const STEPS = [
   { id: 1, label: 'Fotos y video' },
-  { id: 2, label: 'Datos y costeo' },
-  { id: 3, label: 'Variantes' },
+  { id: 2, label: 'Datos' },
+  { id: 3, label: 'Costeo y descuento' },
+  { id: 4, label: 'Variantes' },
 ] as const;
 
 const emptyVariant = (): VariantDraft => ({
   size: KIDS_SIZES[0].value,
   color: '',
   colorHex: '#000000',
-  stockQuantity: 0,
+  stockQuantity: 1,
   sku: '',
 });
 
@@ -59,18 +60,18 @@ function blankState() {
 }
 
 /**
- * Alta/edición de producto en 3 pasos: (1) fotos/video — con detección
+ * Alta/edición de producto en 4 pasos: (1) fotos/video — con detección
  * automática de temporada/talla/precio de compra/SKU a partir del nombre
- * de la primera foto, (2) datos, clasificación, costeo y descuento, y
- * (3) variantes (talla/color/stock) + guardar. La carga de imágenes va a
- * Supabase Storage (bucket "product-images").
+ * de la primera foto, (2) datos y clasificación, (3) costeo y descuento,
+ * y (4) variantes (talla/color/stock) + guardar. La carga de imágenes va
+ * a Supabase Storage (bucket "product-images").
  */
 export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
   const seasons = useSeasons();
   const categories = useCategories();
   const isEditing = !!editingProduct;
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
   const [name, setName] = useState(blankState().name);
   const [description, setDescription] = useState(blankState().description);
@@ -758,7 +759,20 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
               </div>
             </div>
 
-            <div className="border-t border-ink-100 pt-5">
+            <div className="flex gap-3">
+              <Button type="button" variant="secondary" size="lg" onClick={() => setStep(1)}>
+                Atrás
+              </Button>
+              <Button type="button" size="lg" fullWidth onClick={() => setStep(3)}>
+                Siguiente
+              </Button>
+            </div>
+          </>
+        )}
+
+        {step === 3 && (
+          <>
+            <div>
               <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Costeo y precio de venta</h3>
               <div className="mt-3 grid grid-cols-2 gap-4">
                 <div>
@@ -855,17 +869,17 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
             </div>
 
             <div className="flex gap-3">
-              <Button type="button" variant="secondary" size="lg" onClick={() => setStep(1)}>
+              <Button type="button" variant="secondary" size="lg" onClick={() => setStep(2)}>
                 Atrás
               </Button>
-              <Button type="button" size="lg" fullWidth onClick={() => setStep(3)}>
+              <Button type="button" size="lg" fullWidth onClick={() => setStep(4)}>
                 Siguiente
               </Button>
             </div>
           </>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <>
             <div>
               <div className="flex items-center justify-between">
@@ -932,7 +946,7 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
             {error && <div className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-600">{error}</div>}
 
             <div className="flex gap-3">
-              <Button type="button" variant="secondary" size="lg" onClick={() => setStep(2)}>
+              <Button type="button" variant="secondary" size="lg" onClick={() => setStep(3)}>
                 Atrás
               </Button>
               <Button type="submit" loading={saving} size="lg" fullWidth>

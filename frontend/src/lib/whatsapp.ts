@@ -22,10 +22,11 @@ export function buildWhatsAppMessage({ orderNumber, shipping, items, total }: Bu
   return [
     `*Pedido KIKIDS #${orderNumber}*`,
     '',
-    '*Datos de envío:*',
+    '*Datos de envío (agencia Shalom):*',
     `Nombre: ${shipping.fullName}`,
     `Teléfono: ${shipping.phone}`,
-    `Dirección: ${shipping.address}, ${shipping.district}, ${shipping.city}`,
+    `Ciudad: ${shipping.city}`,
+    `Agencia Shalom: ${shipping.address}`,
     shipping.reference ? `Referencia: ${shipping.reference}` : null,
     '',
     '*Prendas:*',

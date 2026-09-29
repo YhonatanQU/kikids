@@ -10,8 +10,8 @@ export interface ShippingInfo {
   fullName: string;
   phone: string;
   email?: string;
+  /** Dirección de la agencia Shalom más cercana al cliente (única agencia con la que trabajamos). */
   address: string;
-  district: string;
   city: string;
   reference?: string;
 }

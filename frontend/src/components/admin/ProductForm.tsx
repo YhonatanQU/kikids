@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useSeasons, useCategories } from '@/hooks/useCategories';
 import { KIDS_SIZES, sizeLabel } from '@/lib/sizes';
@@ -95,6 +95,9 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
 
   const [decoded, setDecoded] = useState<DecodedImageSku | null>(null);
   const [useImageDetails, setUseImageDetails] = useState(true);
+  const [imageUrlInput, setImageUrlInput] = useState('');
+  const [urlImporting, setUrlImporting] = useState(false);
+  const existingImagesCountRef = useRef(0);
 
   const [existingVideoUrl, setExistingVideoUrl] = useState<string | null>(null);
   const [deleteExistingVideo, setDeleteExistingVideo] = useState(false);
@@ -154,6 +157,10 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     };
   }, [images]);
 
+  useEffect(() => {
+    existingImagesCountRef.current = existingImages.length;
+  }, [existingImages.length]);
+
   // Aplica los datos detectados en el nombre de la primera foto a los
   // campos correspondientes mientras el check "Usar detalles de la
   // imagen" esté activo.
@@ -210,24 +217,54 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     setExistingImages((prev) => prev.filter((img) => img.id !== imageId));
   }
 
-  /** Las fotos nuevas se van acumulando (no se reemplazan) hasta el máximo
-   * de MAX_PHOTOS — así la primera foto subida se mantiene siempre como
+  /** Punto único de entrada para agregar fotos nuevas, vengan de donde
+   * vengan (selector de archivos, arrastradas, pegadas con Ctrl+V, o
+   * importadas por enlace). Se acumulan (no se reemplazan) hasta el
+   * máximo de MAX_PHOTOS — así la primera foto se mantiene siempre como
    * tal aunque después se agreguen más, y la detección de SKU (que solo
-   * lee esa primera foto) no cambia por accidente. */
+   * lee esa primera foto) no cambia por accidente. Usa una ref para el
+   * conteo de fotos existentes para poder ser estable entre renders. */
+  const addFiles = useCallback((newFiles: File[]) => {
+    if (newFiles.length === 0) return;
+    setImages((prev) => {
+      const remaining = Math.max(MAX_PHOTOS - existingImagesCountRef.current - prev.length, 0);
+      if (newFiles.length > remaining) {
+        setError(`Máximo ${MAX_PHOTOS} fotos por producto. Se tomaron las primeras ${remaining}.`);
+      }
+      const added = newFiles.slice(0, remaining);
+      if (added.length === 0) return prev;
+      if (prev.length === 0) setDecoded(decodeImageFilename(added[0].name));
+      return [...prev, ...added];
+    });
+  }, []);
+
+  // No todas las fotos vienen como archivo local: a veces se copian desde
+  // Drive, WhatsApp Web, etc. y se pegan directo. Mientras el paso 1 esté
+  // activo, cualquier imagen pegada con Ctrl+V se agrega igual que si se
+  // hubiera subido desde el selector de archivos.
+  useEffect(() => {
+    if (step !== 1) return;
+    function handlePaste(e: ClipboardEvent) {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const pasted: File[] = [];
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) pasted.push(file);
+        }
+      }
+      if (pasted.length === 0) return;
+      e.preventDefault();
+      addFiles(pasted);
+    }
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [step, addFiles]);
+
   function handlePhotosSelected(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
-    const remaining = Math.max(MAX_PHOTOS - existingImages.length - images.length, 0);
-    if (fileList.length > remaining) {
-      setError(`Máximo ${MAX_PHOTOS} fotos por producto. Se tomaron las primeras ${remaining}.`);
-    }
-    const added = Array.from(fileList).slice(0, remaining);
-    if (added.length === 0) return;
-
-    const wasEmpty = images.length === 0;
-    setImages((prev) => [...prev, ...added]);
-    if (wasEmpty) {
-      setDecoded(decodeImageFilename(added[0].name));
-    }
+    addFiles(Array.from(fileList));
   }
 
   /** Quita una foto nueva (aún no subida) de la selección. Si era la
@@ -237,6 +274,40 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     setImages(next);
     if (index === 0) {
       setDecoded(next.length > 0 ? decodeImageFilename(next[0].name) : null);
+    }
+  }
+
+  /** Convierte un enlace para compartir de Google Drive en su URL de
+   * descarga directa — el enlace normal ("/file/d/ID/view") apunta a una
+   * página HTML, no a la imagen en sí. */
+  function normalizeImageUrl(url: string): string {
+    const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+    if (driveMatch) return `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
+    return url;
+  }
+
+  /** Importa una foto desde un enlace (Drive u otro sitio). Si el sitio
+   * bloquea la descarga directa (CORS), se sugiere pegar la imagen con
+   * Ctrl+V en su lugar — eso sí siempre funciona, sin depender de la red. */
+  async function handleAddImageFromUrl() {
+    const rawUrl = imageUrlInput.trim();
+    if (!rawUrl) return;
+    setUrlImporting(true);
+    setError(null);
+    try {
+      const res = await fetch(normalizeImageUrl(rawUrl));
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      if (!blob.type.startsWith('image/')) throw new Error();
+      const name = rawUrl.split('/').pop()?.split('?')[0] || `imagen-${Date.now()}.jpg`;
+      addFiles([new File([blob], name, { type: blob.type })]);
+      setImageUrlInput('');
+    } catch {
+      setError(
+        'No se pudo cargar esa imagen desde el enlace (algunos sitios, como Drive, bloquean la descarga directa). Copia la imagen y pégala aquí con Ctrl+V, o descárgala y súbela como archivo.'
+      );
+    } finally {
+      setUrlImporting(false);
     }
   }
 
@@ -270,6 +341,7 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     setImages([]);
     setDecoded(null);
     setUseImageDetails(true);
+    setImageUrlInput('');
     setExistingVideoUrl(null);
     setDeleteExistingVideo(false);
     setVideoFile(null);
@@ -514,15 +586,47 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
               )}
 
               {totalPhotos < MAX_PHOTOS ? (
-                <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-ink-200 bg-ink-50/50 px-4 py-8 text-center transition-colors hover:border-brand-300 hover:bg-brand-50/40">
-                  <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8 text-ink-300">
-                    <path d="M12 16V4m0 0L7 9m5-5l5 5M5 20h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <span className="mt-2 text-sm font-medium text-ink-600">
-                    {imagePreviews.length > 0 ? `${imagePreviews.length} archivo(s) seleccionado(s)` : 'Arrastra o haz clic para subir fotos'}
-                  </span>
-                  <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handlePhotosSelected(e.target.files)} />
-                </label>
+                <>
+                  <label
+                    className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-ink-200 bg-ink-50/50 px-4 py-8 text-center transition-colors hover:border-brand-300 hover:bg-brand-50/40"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const dropped = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'));
+                      if (dropped.length > 0) addFiles(dropped);
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8 text-ink-300">
+                      <path d="M12 16V4m0 0L7 9m5-5l5 5M5 20h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span className="mt-2 text-sm font-medium text-ink-600">
+                      {imagePreviews.length > 0 ? `${imagePreviews.length} archivo(s) seleccionado(s)` : 'Arrastra, pega (Ctrl+V) o haz clic para subir fotos'}
+                    </span>
+                    <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handlePhotosSelected(e.target.files)} />
+                  </label>
+
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      type="url"
+                      placeholder="O pega el enlace de una imagen (Drive, etc.)"
+                      value={imageUrlInput}
+                      onChange={(e) => setImageUrlInput(e.target.value)}
+                      className="flex-1 rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/40"
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      loading={urlImporting}
+                      disabled={!imageUrlInput.trim()}
+                      onClick={handleAddImageFromUrl}
+                    >
+                      Agregar
+                    </Button>
+                  </div>
+                  <p className="mt-1 text-[11px] text-ink-400">
+                    Las fotos no tienen que estar en tu computadora: cópialas de Drive, WhatsApp Web, etc. y pégalas aquí con Ctrl+V, o pega el enlace.
+                  </p>
+                </>
               ) : (
                 <p className="mt-3 text-xs text-ink-400">Máximo de {MAX_PHOTOS} fotos alcanzado. Quita una para agregar otra.</p>
               )}

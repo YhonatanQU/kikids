@@ -7,9 +7,22 @@ import { effectivePriceFor } from '@/lib/pricing';
 
 type MediaItem = { type: 'image' | 'video'; url: string };
 
+/** "2","3","8" -> "2-8 años"; una sola talla -> su label; si no son todas
+ * numéricas (tallas en meses, texto heredado) -> conteo genérico. */
+function sizeRangeLabel(sizes: string[]): string {
+  if (sizes.length === 0) return '';
+  if (sizes.length === 1) return sizeLabel(sizes[0]);
+  if (sizes.every((s) => /^\d+$/.test(s))) {
+    const nums = sizes.map(Number).sort((a, b) => a - b);
+    return `${nums[0]}-${nums[nums.length - 1]} años`;
+  }
+  return `${sizes.length} tallas`;
+}
+
 export function ProductCard({ product }: { product: Product }) {
   const totalStock = product.variants.reduce((sum, v) => sum + v.availableQuantity, 0);
   const sizes = [...new Set(product.variants.map((v) => v.size))];
+  const colorSwatches = [...new Map(product.variants.filter((v) => v.colorHex).map((v) => [v.colorHex, v.colorHex!])).values()];
   const hasDiscount = product.discountActive && product.discountPercentage > 0;
   const finalPrice = effectivePriceFor(product);
   const media: MediaItem[] = [
@@ -128,10 +141,26 @@ export function ProductCard({ product }: { product: Product }) {
             Destacado
           </span>
         )}
-        {hasDiscount && (
-          <span className="absolute right-2 top-2 rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-bold text-white shadow-soft">
-            -{product.discountPercentage}%
+        {sizes.length > 0 && (
+          <span className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-bold text-ink-700 shadow-soft">
+            {sizeRangeLabel(sizes)}
           </span>
+        )}
+        {colorSwatches.length > 0 && (
+          <div className="absolute bottom-2 right-2 flex items-center gap-1">
+            {colorSwatches.slice(0, 3).map((hex, i) => (
+              <span
+                key={i}
+                className="h-4 w-4 rounded-full border-2 border-white shadow-soft"
+                style={{ backgroundColor: hex }}
+              />
+            ))}
+            {colorSwatches.length > 3 && (
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-white/90 px-1 text-[9px] font-bold text-ink-700 shadow-soft">
+                +{colorSwatches.length - 3}
+              </span>
+            )}
+          </div>
         )}
         {totalStock === 0 && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
@@ -140,19 +169,16 @@ export function ProductCard({ product }: { product: Product }) {
         )}
       </div>
       <div className="p-3.5">
-        <h3 className="truncate text-sm font-semibold text-ink-800 md:text-base">{product.name}</h3>
+        <h3 className="line-clamp-2 text-sm font-semibold text-ink-800 md:text-base">{product.name}</h3>
         {hasDiscount ? (
-          <p className="mt-1 flex items-baseline gap-1.5">
-            <span className="font-extrabold text-red-600">{formatPEN(finalPrice)}</span>
-            <span className="text-xs text-ink-400 line-through">{formatPEN(product.basePrice)}</span>
-          </p>
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <span className="text-base font-extrabold text-red-600 md:text-lg">{formatPEN(finalPrice)}</span>
+            <span className="rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-bold text-red-600">
+              -{product.discountPercentage}%
+            </span>
+          </div>
         ) : (
-          <p className="mt-1 font-extrabold text-brand-600">{formatPEN(product.basePrice)}</p>
-        )}
-        {sizes.length > 0 && (
-          <p className="mt-1 truncate text-xs text-ink-400">
-            Talla{sizes.length > 1 ? 's' : ''}: {sizes.map(sizeLabel).join(', ')}
-          </p>
+          <p className="mt-1.5 text-base font-extrabold text-brand-600 md:text-lg">{formatPEN(product.basePrice)}</p>
         )}
       </div>
     </Link>

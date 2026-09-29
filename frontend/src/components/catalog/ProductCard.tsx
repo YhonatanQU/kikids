@@ -19,6 +19,45 @@ function sizeRangeLabel(sizes: string[]): string {
   return `${sizes.length} tallas`;
 }
 
+const DESCRIPTION_HEIGHT = 32; // px — ~2 líneas de texto-xs
+
+/** Muestra la descripción del producto en un bloque de alto fijo. Si el
+ * texto no entra, en vez de cortarlo con "..." lo anima como una marquesina
+ * vertical (la pista se duplica y se desplaza exactamente la mitad de su
+ * alto para que el loop no se note) hasta que se puede leer todo. */
+function DescriptionMarquee({ text }: { text: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [overflowing, setOverflowing] = useState(false);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    setOverflowing(el.scrollHeight > el.clientHeight + 1);
+  }, [text]);
+
+  if (!text) return null;
+
+  // Más texto -> más tiempo para leerlo antes de repetir el loop.
+  const durationSeconds = Math.max(text.length / 12, 4);
+
+  return (
+    <div
+      ref={containerRef}
+      className="mt-1.5 overflow-hidden text-xs leading-4 text-ink-400"
+      style={{ height: DESCRIPTION_HEIGHT }}
+    >
+      {overflowing ? (
+        <div className="animate-marquee-y" style={{ animationDuration: `${durationSeconds}s` }}>
+          <p className="pb-3">{text}</p>
+          <p className="pb-3" aria-hidden="true">{text}</p>
+        </div>
+      ) : (
+        <p>{text}</p>
+      )}
+    </div>
+  );
+}
+
 export function ProductCard({ product }: { product: Product }) {
   const totalStock = product.variants.reduce((sum, v) => sum + v.availableQuantity, 0);
   const sizes = [...new Set(product.variants.map((v) => v.size))];
@@ -180,6 +219,7 @@ export function ProductCard({ product }: { product: Product }) {
         ) : (
           <p className="mt-1.5 text-base font-extrabold text-brand-600 md:text-lg">{formatPEN(product.basePrice)}</p>
         )}
+        {product.description && <DescriptionMarquee text={product.description} />}
       </div>
     </Link>
   );

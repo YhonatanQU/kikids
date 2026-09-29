@@ -42,6 +42,20 @@ export default {
       screens: {
         xs: '380px',
       },
+      keyframes: {
+        // El contenido se duplica y la pista se mueve exactamente la mitad
+        // de su alto (= el alto de una copia) para que el loop sea continuo,
+        // sin depender de medir píxeles reales del texto.
+        'marquee-y': {
+          '0%': { transform: 'translateY(0)' },
+          '100%': { transform: 'translateY(-50%)' },
+        },
+      },
+      animation: {
+        // Duración por defecto — cada tarjeta la ajusta por su cuenta según
+        // el largo del texto (ver ProductCard), esto es solo el fallback.
+        'marquee-y': 'marquee-y 6s linear infinite',
+      },
     },
   },
   plugins: [],

@@ -61,7 +61,7 @@ export function CheckoutForm() {
     // Paso 2: llevar la pestaña ya abierta hasta WhatsApp con el mensaje
     // estructurado. Si el navegador bloqueó incluso la pestaña en blanco,
     // se intenta un window.open normal como último recurso.
-    const message = buildWhatsAppMessage({ orderNumber: order.order_number, shipping, items, total });
+    const message = buildWhatsAppMessage({ orderNumber: order.order_number, shipping, paymentMethod, items, total });
     const storeNumber = import.meta.env.VITE_WHATSAPP_STORE_NUMBER;
     const whatsappLink = buildWhatsAppLink(storeNumber, message);
     if (whatsappWindow) {

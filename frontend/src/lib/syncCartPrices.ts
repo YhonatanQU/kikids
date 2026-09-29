@@ -17,7 +17,7 @@ export async function syncCartPrices() {
   const { data } = await supabase
     .from('product_variants')
     .select(
-      'id, price_override, available_quantity, is_active, products(base_price, discount_percentage, discount_active, is_active, product_images(url, is_primary))'
+      'id, sku, color, price_override, available_quantity, is_active, products(base_price, discount_percentage, discount_active, is_active, product_images(url, is_primary))'
     )
     .in('id', variantIds);
 
@@ -39,6 +39,8 @@ export async function syncCartPrices() {
       availableQuantity: v.available_quantity,
       stillAvailable: !!v.is_active && !!v.products?.is_active,
       imageUrl: primaryImage?.url,
+      sku: v.sku,
+      color: v.color,
     };
   });
 

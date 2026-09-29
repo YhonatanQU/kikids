@@ -22,6 +22,9 @@ export interface VariantFreshData {
   stillAvailable: boolean;
   /** Foto actual del producto — puede no existir aún al momento de sincronizar. */
   imageUrl?: string;
+  /** SKU y color reales de la variante — el admin puede completarlos después de que el cliente ya agregó el producto al carrito. */
+  sku?: string;
+  color?: string;
 }
 
 interface CartState {
@@ -89,6 +92,8 @@ export const useCartStore = create<CartState>()(
               availableQuantity: current.availableQuantity,
               quantity: Math.max(1, Math.min(item.quantity, current.availableQuantity)),
               imageUrl: current.imageUrl ?? item.imageUrl,
+              sku: current.sku ?? item.sku,
+              color: current.color ?? item.color,
             });
           }
           return { items };

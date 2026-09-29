@@ -24,12 +24,6 @@ export function CheckoutForm() {
     setSubmitting(true);
     setError(null);
 
-    // Abrir la pestaña ANTES del await: si se abre después de esperar la
-    // respuesta del servidor, el navegador ya no lo asocia al clic del
-    // usuario y el bloqueador de pop-ups lo descarta en silencio (sin
-    // error visible) — así se manda el pedido pero nunca abre WhatsApp.
-    const whatsappWindow = window.open('', '_blank');
-
     // Paso 1: reserva atómica de stock + creación de pedido en Postgres.
     // Ver database/schema.sql -> create_order_with_reservation (usa
     // SELECT ... FOR UPDATE para evitar sobreventa).
@@ -50,7 +44,6 @@ export function CheckoutForm() {
     setSubmitting(false);
 
     if (rpcError) {
-      whatsappWindow?.close(); // cerrar la pestaña en blanco: el pedido no se creó
       setError(rpcError.message);
       return;
     }
@@ -58,20 +51,18 @@ export function CheckoutForm() {
     const order = Array.isArray(data) ? data[0] : data;
     const total = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
 
-    // Paso 2: llevar la pestaña ya abierta hasta WhatsApp con el mensaje
-    // estructurado. Si el navegador bloqueó incluso la pestaña en blanco,
-    // se intenta un window.open normal como último recurso.
+    // Paso 2: no abrimos WhatsApp acá — hacerlo después de un await ya no
+    // cuenta como gesto directo del usuario y el navegador lo bloquea (o,
+    // si se abre una pestaña en blanco de antemano para evitarlo, el
+    // cliente ve esa pestaña vacía por un instante). En vez de eso, se
+    // arma el enlace y se pasa a la página de confirmación, donde un botón
+    // lo abre al toque — ahí sí es un clic directo, sin pestaña en blanco.
     const message = buildWhatsAppMessage({ orderNumber: order.order_number, shipping, paymentMethod, items, total });
     const storeNumber = import.meta.env.VITE_WHATSAPP_STORE_NUMBER;
     const whatsappLink = buildWhatsAppLink(storeNumber, message);
-    if (whatsappWindow) {
-      whatsappWindow.location.href = whatsappLink;
-    } else {
-      window.open(whatsappLink, '_blank');
-    }
 
     clear();
-    navigate(`/pedido-confirmado/${order.order_number}`);
+    navigate(`/pedido-confirmado/${order.order_number}`, { state: { whatsappLink } });
   }
 
   return (

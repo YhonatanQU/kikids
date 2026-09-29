@@ -277,34 +277,32 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     }
   }
 
-  /** Convierte un enlace para compartir de Google Drive en su URL de
-   * descarga directa — el enlace normal ("/file/d/ID/view") apunta a una
-   * página HTML, no a la imagen en sí. */
-  function normalizeImageUrl(url: string): string {
-    const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
-    if (driveMatch) return `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
-    return url;
-  }
-
-  /** Importa una foto desde un enlace (Drive u otro sitio). Si el sitio
-   * bloquea la descarga directa (CORS), se sugiere pegar la imagen con
-   * Ctrl+V en su lugar — eso sí siempre funciona, sin depender de la red. */
+  /** Importa una foto desde un enlace (Drive u otro sitio). La descarga la
+   * hace nuestro propio servidor (api/fetch-image), no el navegador — así
+   * se evita el bloqueo de CORS que Drive y otros sitios aplican a un
+   * fetch() hecho directo desde el cliente, y de paso se recupera el
+   * nombre real del archivo (clave para que el SKU se detecte bien). */
   async function handleAddImageFromUrl() {
     const rawUrl = imageUrlInput.trim();
     if (!rawUrl) return;
     setUrlImporting(true);
     setError(null);
     try {
-      const res = await fetch(normalizeImageUrl(rawUrl));
-      if (!res.ok) throw new Error();
+      const res = await fetch(`/api/fetch-image?url=${encodeURIComponent(rawUrl)}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || 'No se pudo cargar la imagen desde ese enlace.');
+      }
       const blob = await res.blob();
-      if (!blob.type.startsWith('image/')) throw new Error();
-      const name = rawUrl.split('/').pop()?.split('?')[0] || `imagen-${Date.now()}.jpg`;
-      addFiles([new File([blob], name, { type: blob.type })]);
+      const filenameHeader = res.headers.get('X-Filename');
+      const name = filenameHeader ? decodeURIComponent(filenameHeader) : `imagen-${Date.now()}.jpg`;
+      addFiles([new File([blob], name, { type: blob.type || 'image/jpeg' })]);
       setImageUrlInput('');
-    } catch {
+    } catch (err) {
       setError(
-        'No se pudo cargar esa imagen desde el enlace (algunos sitios, como Drive, bloquean la descarga directa). Copia la imagen y pégala aquí con Ctrl+V, o descárgala y súbela como archivo.'
+        err instanceof Error && err.message
+          ? err.message
+          : 'No se pudo cargar esa imagen desde el enlace. Copia la imagen y pégala aquí con Ctrl+V, o descárgala y súbela como archivo.'
       );
     } finally {
       setUrlImporting(false);

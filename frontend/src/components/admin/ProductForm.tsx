@@ -90,7 +90,7 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
 
   const [existingImages, setExistingImages] = useState<ProductImage[]>([]);
   const [deletedImageIds, setDeletedImageIds] = useState<string[]>([]);
-  const [images, setImages] = useState<FileList | null>(null);
+  const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<{ file: File; url: string }[]>([]);
 
   const [decoded, setDecoded] = useState<DecodedImageSku | null>(null);
@@ -132,7 +132,7 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
       setExistingImages(editingProduct.images);
       setDeletedVariantIds([]);
       setDeletedImageIds([]);
-      setImages(null);
+      setImages([]);
       setDecoded(null);
       setExistingVideoUrl(editingProduct.videoUrl);
       setDeleteExistingVideo(false);
@@ -147,7 +147,7 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
   // Vistas previas de las fotos nuevas seleccionadas (con su nombre de
   // archivo debajo) — se liberan los object URLs al reemplazar la selección.
   useEffect(() => {
-    const list = images ? Array.from(images).map((file) => ({ file, url: URL.createObjectURL(file) })) : [];
+    const list = images.map((file) => ({ file, url: URL.createObjectURL(file) }));
     setImagePreviews(list);
     return () => {
       list.forEach((p) => URL.revokeObjectURL(p.url));
@@ -210,22 +210,34 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     setExistingImages((prev) => prev.filter((img) => img.id !== imageId));
   }
 
-  /** El input file es de solo lectura; se recorta con DataTransfer para
-   * respetar el máximo de MAX_PHOTOS fotos (existentes + nuevas). */
+  /** Las fotos nuevas se van acumulando (no se reemplazan) hasta el máximo
+   * de MAX_PHOTOS — así la primera foto subida se mantiene siempre como
+   * tal aunque después se agreguen más, y la detección de SKU (que solo
+   * lee esa primera foto) no cambia por accidente. */
   function handlePhotosSelected(fileList: FileList | null) {
-    if (!fileList || fileList.length === 0) {
-      setImages(null);
-      setDecoded(null);
-      return;
-    }
-    const remaining = Math.max(MAX_PHOTOS - existingImages.length, 0);
+    if (!fileList || fileList.length === 0) return;
+    const remaining = Math.max(MAX_PHOTOS - existingImages.length - images.length, 0);
     if (fileList.length > remaining) {
       setError(`Máximo ${MAX_PHOTOS} fotos por producto. Se tomaron las primeras ${remaining}.`);
     }
-    const dt = new DataTransfer();
-    Array.from(fileList).slice(0, remaining).forEach((f) => dt.items.add(f));
-    setImages(dt.files.length > 0 ? dt.files : null);
-    setDecoded(dt.files.length > 0 ? decodeImageFilename(dt.files[0].name) : null);
+    const added = Array.from(fileList).slice(0, remaining);
+    if (added.length === 0) return;
+
+    const wasEmpty = images.length === 0;
+    setImages((prev) => [...prev, ...added]);
+    if (wasEmpty) {
+      setDecoded(decodeImageFilename(added[0].name));
+    }
+  }
+
+  /** Quita una foto nueva (aún no subida) de la selección. Si era la
+   * primera, la detección se recalcula con la que pase a ocupar ese lugar. */
+  function removeNewImage(index: number) {
+    const next = images.filter((_, i) => i !== index);
+    setImages(next);
+    if (index === 0) {
+      setDecoded(next.length > 0 ? decodeImageFilename(next[0].name) : null);
+    }
   }
 
   /** Check desactivado: quita del formulario lo que se había autocompletado. */
@@ -255,7 +267,7 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     setDeletedVariantIds([]);
     setExistingImages([]);
     setDeletedImageIds([]);
-    setImages(null);
+    setImages([]);
     setDecoded(null);
     setUseImageDetails(true);
     setExistingVideoUrl(null);
@@ -267,9 +279,9 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
   /** Devuelve mensajes de error (si los hay) en vez de tragárselos en
    * silencio — así "se guardó pero la foto no subió" queda visible. */
   async function uploadImages(productId: string): Promise<string[]> {
-    if (!images) return [];
+    if (images.length === 0) return [];
     const failures: string[] = [];
-    for (const file of Array.from(images)) {
+    for (const file of images) {
       const path = `${productId}/${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage.from('product-images').upload(path, file);
       if (uploadError) {
@@ -404,7 +416,7 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     }
   }
 
-  const totalPhotos = existingImages.length + (images?.length ?? 0);
+  const totalPhotos = existingImages.length + images.length;
 
   return (
     <Card className="p-6 sm:p-7">
@@ -476,8 +488,22 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
                 <div className="mt-3 flex flex-wrap gap-3">
                   {imagePreviews.map((p, i) => (
                     <div key={i} className="w-20 text-center">
-                      <div className="h-20 w-20 overflow-hidden rounded-lg border border-ink-100">
+                      <div className="group relative h-20 w-20 overflow-hidden rounded-lg border border-ink-100">
                         <img src={p.url} alt={p.file.name} className="h-full w-full object-cover" />
+                        {i === 0 && (
+                          <span className="absolute left-1 top-1 rounded-full bg-brand-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                            1ª
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeNewImage(i)}
+                          className="absolute inset-0 flex items-center justify-center bg-ink-900/0 text-white opacity-0 transition-opacity group-hover:bg-ink-900/50 group-hover:opacity-100"
+                        >
+                          <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+                            <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                          </svg>
+                        </button>
                       </div>
                       <p className="mt-1 truncate text-[10px] text-ink-400" title={p.file.name}>
                         {p.file.name}

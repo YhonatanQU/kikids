@@ -206,7 +206,7 @@ create index idx_orders_customer on orders(customer_id);
 create table order_items (
   id uuid primary key default gen_random_uuid(),
   order_id uuid not null references orders(id) on delete cascade,
-  product_variant_id uuid not null references product_variants(id),
+  product_variant_id uuid references product_variants(id) on delete set null,
   product_name_snapshot text not null,
   size_snapshot text not null,
   color_snapshot text not null,

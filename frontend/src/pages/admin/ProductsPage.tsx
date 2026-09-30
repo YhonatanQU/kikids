@@ -70,7 +70,15 @@ export function ProductsPage() {
     setDeletingId(null);
 
     if (error) {
-      alert(error.message);
+      // 23503 = foreign_key_violation — algo más todavía referencia este
+      // producto (normalmente ya cubierto por la migración 010, pero por
+      // si acaso queda alguna referencia inesperada, el mensaje genérico
+      // de Postgres no es claro para un admin, así que se traduce aquí.
+      alert(
+        error.code === '23503'
+          ? 'No se pudo eliminar: este producto todavía está referenciado en otro lugar (por ejemplo, un pedido). Intenta desactivarlo en vez de eliminarlo.'
+          : error.message
+      );
       return;
     }
     if (editingProduct?.id === product.id) setEditingProduct(null);

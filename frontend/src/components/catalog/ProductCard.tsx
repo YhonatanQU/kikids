@@ -247,21 +247,39 @@ export function ProductCard({ product }: { product: Product }) {
 
       {/* Fuera del Link: "Ver más" navega igual, y "Añadir" mete al
           carrito directo con la primera variante con stock, sin obligar
-          al cliente a entrar al detalle solo para comprar. */}
+          al cliente a entrar al detalle solo para comprar. Solo iconos,
+          con aria-label/title para que sigan siendo claros y accesibles. */}
       <div className="flex gap-2 p-3.5 pt-2.5">
         <Link
           to={`/producto/${product.slug}`}
-          className="flex flex-1 items-center justify-center rounded-xl border border-ink-200 px-2 py-2 text-xs font-semibold text-ink-700 transition-colors hover:border-ink-300 hover:bg-ink-50"
+          aria-label="Ver más"
+          title="Ver más"
+          className="flex flex-1 items-center justify-center rounded-xl border border-ink-200 py-2 text-ink-700 transition-colors hover:border-ink-300 hover:bg-ink-50"
         >
-          Ver más
+          <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.75" />
+          </svg>
         </Link>
         <button
           type="button"
           onClick={handleQuickAdd}
           disabled={!quickAddVariant}
-          className="flex flex-1 items-center justify-center rounded-xl bg-brand-500 px-2 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-ink-200 disabled:text-ink-400"
+          aria-label={added ? 'Añadido al carrito' : 'Añadir al carrito'}
+          title={added ? 'Añadido al carrito' : 'Añadir al carrito'}
+          className="flex flex-1 items-center justify-center rounded-xl bg-brand-500 py-2 text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-ink-200 disabled:text-ink-400"
         >
-          {added ? '✓ Añadido' : 'Añadir al carrito'}
+          {added ? (
+            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+              <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+              <path d="M3 3h2l.4 2M7 13h10l3-7H5.4M7 13L5.4 5M7 13l-2 5h13" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="9" cy="20" r="1.4" fill="currentColor" />
+              <circle cx="17" cy="20" r="1.4" fill="currentColor" />
+            </svg>
+          )}
         </button>
       </div>
     </div>

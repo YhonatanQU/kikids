@@ -20,10 +20,11 @@ export function ProductDetailPage() {
   const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
-  const [added, setAdded] = useState(false);
   const [activeMedia, setActiveMedia] = useState(0);
   const [suggested, setSuggested] = useState<Product[]>([]);
+  const cartItems = useCartStore((s) => s.items);
   const addItem = useCartStore((s) => s.addItem);
+  const removeItem = useCartStore((s) => s.removeItem);
 
   useEffect(() => {
     supabase
@@ -96,6 +97,7 @@ export function ProductDetailPage() {
   }
 
   const selectedVariant = product.variants.find((v) => v.id === selectedVariantId);
+  const inCart = !!selectedVariant && cartItems.some((i) => i.variantId === selectedVariant.id);
   const hasDiscount = product.discountActive && product.discountPercentage > 0;
   const finalPrice = effectivePriceFor(product, selectedVariant);
   const media = [
@@ -104,8 +106,12 @@ export function ProductDetailPage() {
   ];
   const current = media[activeMedia] ?? media[0];
 
-  function handleAddToCart() {
+  function handleToggleCart() {
     if (!selectedVariant || !product) return;
+    if (inCart) {
+      removeItem(selectedVariant.id);
+      return;
+    }
     const primaryImage = product.images.find((img) => img.isPrimary) ?? product.images[0];
     addItem({
       variantId: selectedVariant.id,
@@ -118,8 +124,6 @@ export function ProductDetailPage() {
       availableQuantity: selectedVariant.availableQuantity,
       imageUrl: primaryImage?.url,
     });
-    setAdded(true);
-    setTimeout(() => setAdded(false), 1800);
   }
 
   function handleBack() {
@@ -246,12 +250,13 @@ export function ProductDetailPage() {
             )}
           </div>
           <Button
-            onClick={handleAddToCart}
-            disabled={!selectedVariant || selectedVariant.availableQuantity === 0}
+            onClick={handleToggleCart}
+            disabled={!selectedVariant || (!inCart && selectedVariant.availableQuantity === 0)}
+            variant={inCart ? 'danger' : 'primary'}
             size="lg"
             className="shrink-0 px-8"
           >
-            {added ? '✓ Añadido' : 'Añadir al carrito'}
+            {inCart ? 'Quitar del carrito' : 'Añadir al carrito'}
           </Button>
         </div>
       </div>

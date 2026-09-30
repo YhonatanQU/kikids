@@ -71,16 +71,22 @@ export function ProductCard({ product }: { product: Product }) {
   ];
   const [index, setIndex] = useState(0);
   const [hovering, setHovering] = useState(false);
-  const [added, setAdded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const current = media[index];
+  const cartItems = useCartStore((s) => s.items);
   const addItem = useCartStore((s) => s.addItem);
+  const removeItem = useCartStore((s) => s.removeItem);
   // Sin selector de talla/color en la tarjeta: "Añadir" toma la primera
   // variante con stock, igual que la página de producto preselecciona.
   const quickAddVariant = product.variants.find((v) => v.availableQuantity > 0);
+  const inCart = !!quickAddVariant && cartItems.some((i) => i.variantId === quickAddVariant.id);
 
-  function handleQuickAdd() {
+  function handleQuickAddToggle() {
     if (!quickAddVariant) return;
+    if (inCart) {
+      removeItem(quickAddVariant.id);
+      return;
+    }
     const primaryImage = product.images.find((img) => img.isPrimary) ?? product.images[0];
     addItem({
       variantId: quickAddVariant.id,
@@ -93,8 +99,6 @@ export function ProductCard({ product }: { product: Product }) {
       availableQuantity: quickAddVariant.availableQuantity,
       imageUrl: primaryImage?.url,
     });
-    setAdded(true);
-    setTimeout(() => setAdded(false), 1500);
   }
 
   // Reproduce el video en cuanto el mouse está sobre la tarjeta y el
@@ -263,15 +267,19 @@ export function ProductCard({ product }: { product: Product }) {
         </Link>
         <button
           type="button"
-          onClick={handleQuickAdd}
+          onClick={handleQuickAddToggle}
           disabled={!quickAddVariant}
-          aria-label={added ? 'Añadido al carrito' : 'Añadir al carrito'}
-          title={added ? 'Añadido al carrito' : 'Añadir al carrito'}
-          className="flex flex-1 items-center justify-center rounded-xl bg-brand-500 py-2 text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-ink-200 disabled:text-ink-400"
+          aria-label={inCart ? 'Quitar del carrito' : 'Añadir al carrito'}
+          title={inCart ? 'Quitar del carrito' : 'Añadir al carrito'}
+          className={`flex flex-1 items-center justify-center rounded-xl py-2 transition-colors disabled:cursor-not-allowed disabled:border-transparent disabled:bg-ink-200 disabled:text-ink-400 ${
+            inCart
+              ? 'border border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
+              : 'bg-brand-500 text-white hover:bg-brand-600'
+          }`}
         >
-          {added ? (
+          {inCart ? (
             <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
-              <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m2 0-.8 12a2 2 0 01-2 1.9H8.8a2 2 0 01-2-1.9L6 7h12z" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           ) : (
             <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">

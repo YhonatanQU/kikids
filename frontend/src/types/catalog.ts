@@ -44,6 +44,8 @@ export interface Product {
   description: string | null;
   categoryId: string;
   seasonId: string;
+  seasonSlug: string;
+  seasonName: string;
   gender: Gender;
   costPrice: number;
   freightCost: number;

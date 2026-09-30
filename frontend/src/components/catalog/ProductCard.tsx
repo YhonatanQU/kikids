@@ -20,6 +20,28 @@ function sizeRangeLabel(sizes: string[]): string {
   return `${sizes.length} tallas`;
 }
 
+/** Etiqueta de temporada junto al precio, con su ícono (sol/copo) cuando
+ * la temporada es verano o invierno — para cualquier otra, solo el nombre. */
+function SeasonBadge({ slug, name }: { slug: string; name: string }) {
+  if (!name) return null;
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-semibold text-ink-600">
+      {slug === 'verano' && (
+        <svg viewBox="0 0 24 24" fill="none" className="h-3 w-3">
+          <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      )}
+      {slug === 'invierno' && (
+        <svg viewBox="0 0 24 24" fill="none" className="h-3 w-3">
+          <path d="M12 2v20M4.5 7l15 10M19.5 7l-15 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      )}
+      {name}
+    </span>
+  );
+}
+
 const DESCRIPTION_HEIGHT = 32; // px — ~2 líneas de texto-xs
 
 /** Muestra la descripción del producto en un bloque de alto fijo. Si el
@@ -236,14 +258,18 @@ export function ProductCard({ product }: { product: Product }) {
       <div className="p-3.5 pb-0">
         <h3 className="line-clamp-2 text-sm font-semibold text-ink-800 md:text-base">{product.name}</h3>
         {hasDiscount ? (
-          <div className="mt-1.5 flex items-center gap-1.5">
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <span className="text-base font-extrabold text-red-600 md:text-lg">{formatPEN(finalPrice)}</span>
             <span className="rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-bold text-red-600">
               -{product.discountPercentage}%
             </span>
+            <SeasonBadge slug={product.seasonSlug} name={product.seasonName} />
           </div>
         ) : (
-          <p className="mt-1.5 text-base font-extrabold text-brand-600 md:text-lg">{formatPEN(product.basePrice)}</p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <p className="text-base font-extrabold text-brand-600 md:text-lg">{formatPEN(product.basePrice)}</p>
+            <SeasonBadge slug={product.seasonSlug} name={product.seasonName} />
+          </div>
         )}
         {product.description && <DescriptionMarquee text={product.description} />}
       </div>

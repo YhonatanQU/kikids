@@ -14,6 +14,8 @@ export function mapProductRow(row: any): Product {
     description: row.description ?? null,
     categoryId: row.category_id,
     seasonId: row.season_id,
+    seasonSlug: row.seasons?.slug ?? '',
+    seasonName: row.seasons?.name ?? '',
     gender: row.gender,
     costPrice: Number(row.cost_price ?? 0),
     freightCost: Number(row.freight_cost ?? 0),

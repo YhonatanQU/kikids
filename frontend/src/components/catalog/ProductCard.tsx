@@ -112,7 +112,7 @@ export function ProductCard({ product }: { product: Product }) {
         {current ? (
           current.type === 'video' ? (
             <div className="relative h-full w-full">
-              <video ref={videoRef} src={current.url} muted loop playsInline className="h-full w-full object-cover" />
+              <video ref={videoRef} src={current.url} muted loop playsInline className="h-full w-full object-contain" />
               <span
                 className={`absolute inset-0 flex items-center justify-center bg-ink-900/20 transition-opacity duration-200 ${
                   hovering ? 'opacity-0' : 'opacity-100'
@@ -129,7 +129,7 @@ export function ProductCard({ product }: { product: Product }) {
             <img
               src={current.url}
               alt={product.name}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
               loading="lazy"
             />
           )

@@ -149,9 +149,9 @@ export function ProductDetailPage() {
       <div>
         <div className="aspect-square overflow-hidden rounded-2xl bg-ink-100 shadow-card">
           {current?.type === 'video' ? (
-            <video src={current.url} controls className="h-full w-full object-cover" />
+            <video src={current.url} controls className="h-full w-full object-contain" />
           ) : current ? (
-            <img src={current.url} alt={product.name} className="h-full w-full object-cover" />
+            <img src={current.url} alt={product.name} className="h-full w-full object-contain" />
           ) : null}
         </div>
         {media.length > 1 && (

@@ -4,6 +4,7 @@ import type { Product } from '@/types/catalog';
 import { formatPEN } from '@/lib/formatCurrency';
 import { sizeLabel } from '@/lib/sizes';
 import { effectivePriceFor } from '@/lib/pricing';
+import { useCartStore } from '@/store/cartStore';
 
 type MediaItem = { type: 'image' | 'video'; url: string };
 
@@ -70,8 +71,31 @@ export function ProductCard({ product }: { product: Product }) {
   ];
   const [index, setIndex] = useState(0);
   const [hovering, setHovering] = useState(false);
+  const [added, setAdded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const current = media[index];
+  const addItem = useCartStore((s) => s.addItem);
+  // Sin selector de talla/color en la tarjeta: "Añadir" toma la primera
+  // variante con stock, igual que la página de producto preselecciona.
+  const quickAddVariant = product.variants.find((v) => v.availableQuantity > 0);
+
+  function handleQuickAdd() {
+    if (!quickAddVariant) return;
+    const primaryImage = product.images.find((img) => img.isPrimary) ?? product.images[0];
+    addItem({
+      variantId: quickAddVariant.id,
+      productName: product.name,
+      size: quickAddVariant.size,
+      color: quickAddVariant.color,
+      sku: quickAddVariant.sku,
+      unitPrice: effectivePriceFor(product, quickAddVariant),
+      quantity: 1,
+      availableQuantity: quickAddVariant.availableQuantity,
+      imageUrl: primaryImage?.url,
+    });
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1500);
+  }
 
   // Reproduce el video en cuanto el mouse está sobre la tarjeta y el
   // slide activo es el video; lo pausa y rebobina al salir.
@@ -100,10 +124,8 @@ export function ProductCard({ product }: { product: Product }) {
   }
 
   return (
-    <Link
-      to={`/producto/${product.slug}`}
-      className="group block overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft"
-    >
+    <div className="group overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft">
+    <Link to={`/producto/${product.slug}`} className="block">
       <div
         className="relative aspect-square w-full overflow-hidden bg-ink-100"
         onMouseEnter={() => setHovering(true)}
@@ -207,7 +229,7 @@ export function ProductCard({ product }: { product: Product }) {
           </div>
         )}
       </div>
-      <div className="p-3.5">
+      <div className="p-3.5 pb-0">
         <h3 className="line-clamp-2 text-sm font-semibold text-ink-800 md:text-base">{product.name}</h3>
         {hasDiscount ? (
           <div className="mt-1.5 flex items-center gap-1.5">
@@ -222,5 +244,26 @@ export function ProductCard({ product }: { product: Product }) {
         {product.description && <DescriptionMarquee text={product.description} />}
       </div>
     </Link>
+
+      {/* Fuera del Link: "Ver más" navega igual, y "Añadir" mete al
+          carrito directo con la primera variante con stock, sin obligar
+          al cliente a entrar al detalle solo para comprar. */}
+      <div className="flex gap-2 p-3.5 pt-2.5">
+        <Link
+          to={`/producto/${product.slug}`}
+          className="flex flex-1 items-center justify-center rounded-xl border border-ink-200 px-2 py-2 text-xs font-semibold text-ink-700 transition-colors hover:border-ink-300 hover:bg-ink-50"
+        >
+          Ver más
+        </Link>
+        <button
+          type="button"
+          onClick={handleQuickAdd}
+          disabled={!quickAddVariant}
+          className="flex flex-1 items-center justify-center rounded-xl bg-brand-500 px-2 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-ink-200 disabled:text-ink-400"
+        >
+          {added ? '✓ Añadido' : 'Añadir al carrito'}
+        </button>
+      </div>
+    </div>
   );
 }

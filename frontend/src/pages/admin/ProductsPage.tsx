@@ -4,6 +4,7 @@ import { mapProductRow } from '@/lib/mappers';
 import { ProductTable } from '@/components/admin/ProductTable';
 import { ProductForm } from '@/components/admin/ProductForm';
 import { BulkDiscountBar } from '@/components/admin/BulkDiscountBar';
+import { BulkImportCsv } from '@/components/admin/BulkImportCsv';
 import type { Product } from '@/types/catalog';
 
 const SELECT_QUERY = `id, name, slug, description, category_id, season_id, gender,
@@ -15,6 +16,7 @@ export function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [applyingDiscount, setApplyingDiscount] = useState(false);
@@ -38,7 +40,15 @@ export function ProductsPage() {
 
   function handleNewProduct() {
     setEditingProduct(null);
+    setImportOpen(false);
     setFormOpen(true);
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function handleOpenImport() {
+    setEditingProduct(null);
+    setFormOpen(false);
+    setImportOpen(true);
     formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -140,24 +150,36 @@ export function ProductsPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-extrabold tracking-tight text-ink-900">Productos</h1>
-        {!formOpen && (
-          <button
-            type="button"
-            onClick={handleNewProduct}
-            className="flex items-center gap-1.5 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-soft hover:bg-brand-600"
-          >
-            <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-              <path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-            Nuevo producto
-          </button>
+        {!formOpen && !importOpen && (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleOpenImport}
+              className="flex items-center gap-1.5 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-700 hover:bg-ink-50"
+            >
+              <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+                <path d="M10 3v10m0 0l-3.5-3.5M10 13l3.5-3.5M4 16h12" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Importar CSV
+            </button>
+            <button
+              type="button"
+              onClick={handleNewProduct}
+              className="flex items-center gap-1.5 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-soft hover:bg-brand-600"
+            >
+              <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+                <path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              Nuevo producto
+            </button>
+          </div>
         )}
       </div>
 
-      {/* Pantalla grande: formulario a la izquierda, listado a la derecha —
-          el formulario solo aparece al crear/editar; el resto del tiempo
-          solo se ve la tabla a todo el ancho. */}
-      <div className={formOpen ? 'grid grid-cols-1 gap-6 xl:grid-cols-[440px_1fr] xl:items-start' : ''}>
+      {/* Pantalla grande: formulario/importador a la izquierda, listado a la
+          derecha — solo aparecen al crear/editar/importar; el resto del
+          tiempo se ve solo la tabla a todo el ancho. */}
+      <div className={formOpen || importOpen ? 'grid grid-cols-1 gap-6 xl:grid-cols-[440px_1fr] xl:items-start' : ''}>
         {formOpen && (
           <div ref={formRef} className="xl:sticky xl:top-6">
             <ProductForm
@@ -165,6 +187,11 @@ export function ProductsPage() {
               onSaved={handleSaved}
               onCancelEdit={handleCloseForm}
             />
+          </div>
+        )}
+        {importOpen && (
+          <div ref={formRef} className="xl:sticky xl:top-6">
+            <BulkImportCsv onImported={loadProducts} onClose={() => setImportOpen(false)} />
           </div>
         )}
         <div>

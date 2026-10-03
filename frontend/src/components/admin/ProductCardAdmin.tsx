@@ -24,8 +24,12 @@ export function ProductCardAdmin({ product, selected, editing, deleting, onToggl
 
   return (
     <div
-      className={`overflow-hidden rounded-2xl border bg-white shadow-card transition-colors ${
-        editing ? 'border-brand-300 ring-2 ring-brand-100' : selected ? 'border-ink-300' : 'border-ink-100'
+      className={`overflow-hidden rounded-2xl border-2 shadow-card transition-colors ${
+        editing
+          ? 'border-brand-400 bg-brand-50/40 ring-2 ring-brand-100'
+          : selected
+            ? 'border-blue-400 bg-blue-50/50 ring-2 ring-blue-100'
+            : 'border-ink-100 bg-white'
       }`}
     >
       <div className="relative aspect-square w-full bg-ink-100">
@@ -39,12 +43,16 @@ export function ProductCardAdmin({ product, selected, editing, deleting, onToggl
             </svg>
           </div>
         )}
-        <label className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-md bg-white/90 shadow-soft">
+        <label
+          className={`absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-md shadow-soft transition-colors ${
+            selected ? 'bg-blue-500' : 'bg-white/90'
+          }`}
+        >
           <input
             type="checkbox"
             checked={selected}
             onChange={onToggleSelect}
-            className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-400/40"
+            className="h-4 w-4 rounded border-ink-300 text-blue-600 focus:ring-blue-400/40"
             aria-label={`Seleccionar ${product.name}`}
           />
         </label>

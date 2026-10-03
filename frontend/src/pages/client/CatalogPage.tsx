@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useProducts } from '@/hooks/useProducts';
 import { ProductGrid } from '@/components/catalog/ProductGrid';
@@ -6,12 +7,24 @@ import type { Gender } from '@/types/catalog';
 
 export function CatalogPage() {
   const [searchParams] = useSearchParams();
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const { products, loading, error } = useProducts({
     seasonSlug: searchParams.get('temporada') ?? undefined,
     gender: (searchParams.get('genero') as Gender) ?? undefined,
     categorySlug: searchParams.get('categoria') ?? undefined,
   });
+
+  // El botón "subir" solo aparece después de bajar un poco — no tiene
+  // sentido mostrarlo si ya se está arriba del todo.
+  useEffect(() => {
+    function onScroll() {
+      setShowScrollTop(window.scrollY > 400);
+    }
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 md:px-8">
@@ -26,6 +39,20 @@ export function CatalogPage() {
       )}
       {error && <p className="text-red-600">{error}</p>}
       {!loading && !error && <ProductGrid products={products} />}
+
+      {showScrollTop && (
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          aria-label="Subir"
+          title="Subir"
+          className="fixed bottom-20 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-brand-500 text-white shadow-soft transition-transform hover:scale-105 hover:bg-brand-600 md:bottom-6"
+        >
+          <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+            <path d="M10 15V5M5 9l5-5 5 5" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }

@@ -31,36 +31,41 @@ export function FilterBar() {
   const hasFilters = searchParams.toString().length > 0;
 
   return (
-    <div className="mb-6 flex flex-wrap items-center gap-2 overflow-x-auto pb-1">
-      <select className={selectClass} value={searchParams.get('temporada') ?? ''} onChange={(e) => updateFilter('temporada', e.target.value || null)}>
-        <option value="">Temporada</option>
-        {seasons.map((s) => (
-          <option key={s.id} value={s.slug}>{s.name}</option>
-        ))}
-      </select>
+    // "sticky" justo debajo del header (que también es sticky, de ahí el
+    // top-[60px]) para que los filtros no se pierdan al bajar por el
+    // catálogo — fondo sólido + borde para que se note que quedó pegado.
+    <div className="sticky top-[60px] z-30 mb-6 -mx-4 border-b border-ink-100 bg-white/95 px-4 py-3 backdrop-blur-sm md:-mx-8 md:px-8">
+      <div className="flex flex-wrap items-center gap-2 overflow-x-auto pb-1">
+        <select className={selectClass} value={searchParams.get('temporada') ?? ''} onChange={(e) => updateFilter('temporada', e.target.value || null)}>
+          <option value="">Temporada</option>
+          {seasons.map((s) => (
+            <option key={s.id} value={s.slug}>{s.name}</option>
+          ))}
+        </select>
 
-      <select className={selectClass} value={searchParams.get('genero') ?? ''} onChange={(e) => updateFilter('genero', e.target.value || null)}>
-        <option value="">Género</option>
-        {GENDERS.map((g) => (
-          <option key={g.value} value={g.value}>{g.label}</option>
-        ))}
-      </select>
+        <select className={selectClass} value={searchParams.get('genero') ?? ''} onChange={(e) => updateFilter('genero', e.target.value || null)}>
+          <option value="">Género</option>
+          {GENDERS.map((g) => (
+            <option key={g.value} value={g.value}>{g.label}</option>
+          ))}
+        </select>
 
-      <select className={selectClass} value={searchParams.get('categoria') ?? ''} onChange={(e) => updateFilter('categoria', e.target.value || null)}>
-        <option value="">Categoría</option>
-        {categories.map((c) => (
-          <option key={c.id} value={c.slug}>{c.name}</option>
-        ))}
-      </select>
+        <select className={selectClass} value={searchParams.get('categoria') ?? ''} onChange={(e) => updateFilter('categoria', e.target.value || null)}>
+          <option value="">Categoría</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.slug}>{c.name}</option>
+          ))}
+        </select>
 
-      {hasFilters && (
-        <button
-          onClick={() => setSearchParams(new URLSearchParams())}
-          className="rounded-xl px-3 py-2 text-sm font-medium text-ink-400 hover:text-brand-600"
-        >
-          Limpiar
-        </button>
-      )}
+        {hasFilters && (
+          <button
+            onClick={() => setSearchParams(new URLSearchParams())}
+            className="rounded-xl px-3 py-2 text-sm font-medium text-ink-400 hover:text-brand-600"
+          >
+            Limpiar
+          </button>
+        )}
+      </div>
     </div>
   );
 }

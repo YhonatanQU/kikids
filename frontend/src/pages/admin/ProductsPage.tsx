@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { mapProductRow } from '@/lib/mappers';
 import { ProductTable } from '@/components/admin/ProductTable';
+import { ProductCardAdmin } from '@/components/admin/ProductCardAdmin';
 import { ProductForm } from '@/components/admin/ProductForm';
 import { BulkDiscountBar } from '@/components/admin/BulkDiscountBar';
 import { BulkImportCsv } from '@/components/admin/BulkImportCsv';
@@ -20,6 +21,7 @@ export function ProductsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [applyingDiscount, setApplyingDiscount] = useState(false);
+  const [view, setView] = useState<'cards' | 'table'>('cards');
   const formRef = useRef<HTMLDivElement>(null);
 
   function loadProducts() {
@@ -148,10 +150,30 @@ export function ProductsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-extrabold tracking-tight text-ink-900">Productos</h1>
         {!formOpen && !importOpen && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex rounded-xl border border-ink-200 bg-white p-0.5">
+              <button
+                type="button"
+                onClick={() => setView('cards')}
+                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
+                  view === 'cards' ? 'bg-ink-900 text-white' : 'text-ink-600 hover:bg-ink-50'
+                }`}
+              >
+                Tarjetas
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('table')}
+                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
+                  view === 'table' ? 'bg-ink-900 text-white' : 'text-ink-600 hover:bg-ink-50'
+                }`}
+              >
+                Tabla
+              </button>
+            </div>
             <button
               type="button"
               onClick={handleOpenImport}
@@ -202,16 +224,48 @@ export function ProductsPage() {
             onRemove={removeBulkDiscount}
             onClearSelection={() => setSelectedIds(new Set())}
           />
-          <ProductTable
-            products={products}
-            editingProductId={editingProduct?.id ?? null}
-            deletingId={deletingId}
-            selectedIds={selectedIds}
-            onToggleSelect={toggleSelect}
-            onToggleSelectAll={toggleSelectAll}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
+          {view === 'table' ? (
+            <ProductTable
+              products={products}
+              editingProductId={editingProduct?.id ?? null}
+              deletingId={deletingId}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelect}
+              onToggleSelectAll={toggleSelectAll}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          ) : products.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-ink-100 bg-white py-16 text-center shadow-card">
+              <p className="text-sm text-ink-400">Todavía no hay productos registrados.</p>
+            </div>
+          ) : (
+            <>
+              <label className="mb-3 flex w-fit cursor-pointer items-center gap-2 text-sm font-medium text-ink-600">
+                <input
+                  type="checkbox"
+                  checked={products.length > 0 && products.every((p) => selectedIds.has(p.id))}
+                  onChange={toggleSelectAll}
+                  className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-400/40"
+                />
+                Seleccionar todos ({products.length})
+              </label>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+                {products.map((product) => (
+                  <ProductCardAdmin
+                    key={product.id}
+                    product={product}
+                    selected={selectedIds.has(product.id)}
+                    editing={editingProduct?.id === product.id}
+                    deleting={deletingId === product.id}
+                    onToggleSelect={() => toggleSelect(product.id)}
+                    onEdit={() => handleEdit(product)}
+                    onDelete={() => handleDelete(product)}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

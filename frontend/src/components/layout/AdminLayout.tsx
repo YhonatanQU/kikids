@@ -100,8 +100,10 @@ export function AdminLayout() {
         </div>
       )}
 
-      {/* Sidebar fijo — solo escritorio/tablet */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-ink-100 bg-white p-4 md:flex">
+      {/* Sidebar fijo — solo escritorio/tablet. "sticky" + alto de viewport
+          para que no se vaya con el scroll cuando el listado (ej. 100+
+          tarjetas de producto) es más alto que la pantalla. */}
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-ink-100 bg-white p-4 md:flex md:sticky md:top-0 md:h-screen md:overflow-y-auto">
         <Link to="/admin" className="mb-8 px-2">
           <BrandMark />
         </Link>

@@ -1,34 +1,18 @@
-import { useSeasons, useCategories } from '@/hooks/useCategories';
-import { Card } from '@/components/ui/Card';
+import { TaxonomyManager } from '@/components/admin/TaxonomyManager';
 
 export function CategoriesPage() {
-  const seasons = useSeasons();
-  const categories = useCategories();
-
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-extrabold tracking-tight text-ink-900">Categorías / Temporadas</h1>
+      <h1 className="mb-1 text-2xl font-extrabold tracking-tight text-ink-900">Categorías / Temporadas / Género</h1>
+      <p className="mb-6 text-sm text-ink-500">
+        Estas opciones aparecen como filtros en el catálogo público. Usa las flechas para ordenarlas, el ícono del
+        ojo para ocultarlas sin borrarlas, y el lápiz para renombrarlas.
+      </p>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <Card className="p-5">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-ink-400">Temporadas / Colecciones</h2>
-          <ul className="mt-3 divide-y divide-ink-100">
-            {seasons.map((s) => (
-              <li key={s.id} className="py-2.5 text-sm font-medium text-ink-700">{s.name}</li>
-            ))}
-          </ul>
-          {/* TODO: formulario de alta/edición de temporadas */}
-        </Card>
-
-        <Card className="p-5">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-ink-400">Categorías de prenda</h2>
-          <ul className="mt-3 divide-y divide-ink-100">
-            {categories.map((c) => (
-              <li key={c.id} className="py-2.5 text-sm font-medium text-ink-700">{c.name}</li>
-            ))}
-          </ul>
-          {/* TODO: formulario de alta/edición de categorías, con soporte parent_id */}
-        </Card>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <TaxonomyManager table="seasons" title="Temporadas / Colecciones" itemLabel="temporada" />
+        <TaxonomyManager table="categories" title="Categorías de prenda" itemLabel="categoría" />
+        <TaxonomyManager table="genders" title="Género" itemLabel="género" />
       </div>
     </div>
   );

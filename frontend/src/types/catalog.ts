@@ -1,6 +1,11 @@
-export type Gender = 'nino' | 'nina' | 'bebe' | 'unisex';
-
 export interface Season {
+  id: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+}
+
+export interface Gender {
   id: string;
   name: string;
   slug: string;
@@ -46,7 +51,9 @@ export interface Product {
   seasonId: string;
   seasonSlug: string;
   seasonName: string;
-  gender: Gender;
+  genderId: string;
+  genderSlug: string;
+  genderName: string;
   costPrice: number;
   freightCost: number;
   adminCost: number;
@@ -62,7 +69,7 @@ export interface Product {
 
 export interface CatalogFilters {
   seasonSlug?: string;
-  gender?: Gender;
+  genderSlug?: string;
   categorySlug?: string;
   size?: string;
   color?: string;

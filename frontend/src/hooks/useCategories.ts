@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import type { Category, Season } from '@/types/catalog';
+import type { Category, Gender, Season } from '@/types/catalog';
 
 export function useSeasons() {
   const [seasons, setSeasons] = useState<Season[]>([]);
@@ -30,4 +30,19 @@ export function useCategories() {
   }, []);
 
   return categories;
+}
+
+export function useGenders() {
+  const [genders, setGenders] = useState<Gender[]>([]);
+
+  useEffect(() => {
+    supabase
+      .from('genders')
+      .select('id, name, slug, is_active')
+      .eq('is_active', true)
+      .order('display_order')
+      .then(({ data }) => setGenders((data ?? []) as unknown as Gender[]));
+  }, []);
+
+  return genders;
 }

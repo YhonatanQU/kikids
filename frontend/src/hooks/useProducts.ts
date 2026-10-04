@@ -20,14 +20,15 @@ export function useProducts(filters: CatalogFilters) {
       setLoading(true);
       setError(null);
 
-      // seasons!inner / categories!inner: sin el hint !inner, PostgREST no
-      // usa estas relaciones embebidas para filtrar las filas padre, solo
-      // filtraría dentro del array embebido (ver docs de "embedded filters").
+      // seasons!inner / categories!inner / genders!inner: sin el hint
+      // !inner, PostgREST no usa estas relaciones embebidas para filtrar
+      // las filas padre, solo filtraría dentro del array embebido (ver
+      // docs de "embedded filters").
       let query = supabase
         .from('products')
         .select(
-          `id, name, slug, description, category_id, season_id, gender, base_price, discount_percentage, discount_active, is_featured, video_url,
-           seasons!inner(name, slug), categories!inner(slug),
+          `id, name, slug, description, category_id, season_id, gender_id, base_price, discount_percentage, discount_active, is_featured, video_url,
+           seasons!inner(name, slug), categories!inner(slug), genders!inner(name, slug),
            variants:product_variants(id, size, color, color_hex, sku, price_override, stock_quantity, available_quantity, is_active),
            images:product_images(id, url, variant_id, is_primary)`
         )
@@ -36,8 +37,8 @@ export function useProducts(filters: CatalogFilters) {
       if (filters.seasonSlug) {
         query = query.eq('seasons.slug', filters.seasonSlug);
       }
-      if (filters.gender) {
-        query = query.eq('gender', filters.gender);
+      if (filters.genderSlug) {
+        query = query.eq('genders.slug', filters.genderSlug);
       }
       if (filters.categorySlug) {
         query = query.eq('categories.slug', filters.categorySlug);
@@ -60,7 +61,7 @@ export function useProducts(filters: CatalogFilters) {
     return () => {
       cancelled = true;
     };
-  }, [filters.seasonSlug, filters.gender, filters.categorySlug, filters.size, filters.color]);
+  }, [filters.seasonSlug, filters.genderSlug, filters.categorySlug, filters.size, filters.color]);
 
   // Si dos clientes están viendo el catálogo a la vez y uno agota una
   // talla, el otro debe ver "Agotado" sin necesidad de refrescar.

@@ -11,7 +11,7 @@ import { effectivePriceFor } from '@/lib/pricing';
 import { Button } from '@/components/ui/Button';
 import type { Product } from '@/types/catalog';
 
-const SUGGESTED_SELECT = `id, name, slug, description, category_id, season_id, gender, base_price, discount_percentage, discount_active, is_featured, video_url,
+const SUGGESTED_SELECT = `id, name, slug, description, category_id, season_id, gender_id, base_price, discount_percentage, discount_active, is_featured, video_url,
      seasons(name, slug),
      variants:product_variants(id, size, color, color_hex, sku, price_override, stock_quantity, available_quantity, is_active),
      images:product_images(id, url, variant_id, is_primary)`;
@@ -31,7 +31,7 @@ export function ProductDetailPage() {
     supabase
       .from('products')
       .select(
-        `id, name, slug, description, category_id, season_id, gender, base_price, discount_percentage, discount_active, is_featured, video_url,
+        `id, name, slug, description, category_id, season_id, gender_id, base_price, discount_percentage, discount_active, is_featured, video_url,
          seasons(name, slug),
          variants:product_variants(id, size, color, color_hex, sku, price_override, stock_quantity, available_quantity, is_active),
          images:product_images(id, url, variant_id, is_primary)`

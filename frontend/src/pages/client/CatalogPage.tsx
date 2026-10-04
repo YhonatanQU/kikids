@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom';
 import { useProducts } from '@/hooks/useProducts';
 import { ProductGrid } from '@/components/catalog/ProductGrid';
 import { FilterBar } from '@/components/catalog/FilterBar';
-import type { Gender } from '@/types/catalog';
 
 export function CatalogPage() {
   const [searchParams] = useSearchParams();
@@ -11,7 +10,7 @@ export function CatalogPage() {
 
   const { products, loading, error } = useProducts({
     seasonSlug: searchParams.get('temporada') ?? undefined,
-    gender: (searchParams.get('genero') as Gender) ?? undefined,
+    genderSlug: searchParams.get('genero') ?? undefined,
     categorySlug: searchParams.get('categoria') ?? undefined,
   });
 

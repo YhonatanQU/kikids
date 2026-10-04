@@ -8,7 +8,7 @@ import { BulkDiscountBar } from '@/components/admin/BulkDiscountBar';
 import { BulkImportCsv } from '@/components/admin/BulkImportCsv';
 import type { Product } from '@/types/catalog';
 
-const SELECT_QUERY = `id, name, slug, description, category_id, season_id, gender,
+const SELECT_QUERY = `id, name, slug, description, category_id, season_id, gender_id,
   cost_price, freight_cost, admin_cost, markup_percentage, base_price, discount_percentage, discount_active, is_featured, video_url,
   variants:product_variants(id, size, color, color_hex, sku, price_override, stock_quantity, available_quantity, is_active),
   images:product_images(id, url, variant_id, is_primary)`;

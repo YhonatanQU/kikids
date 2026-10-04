@@ -1,12 +1,5 @@
 import { useSearchParams } from 'react-router-dom';
-import { useSeasons, useCategories } from '@/hooks/useCategories';
-import type { Gender } from '@/types/catalog';
-
-const GENDERS: { value: Gender; label: string }[] = [
-  { value: 'nino', label: 'Niños' },
-  { value: 'nina', label: 'Niñas' },
-  { value: 'bebe', label: 'Bebés' },
-];
+import { useSeasons, useCategories, useGenders } from '@/hooks/useCategories';
 
 const selectClass =
   'rounded-xl border border-ink-200 bg-white px-3.5 py-2 text-sm font-medium text-ink-700 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-brand-400/40';
@@ -20,6 +13,7 @@ export function FilterBar() {
   const [searchParams, setSearchParams] = useSearchParams();
   const seasons = useSeasons();
   const categories = useCategories();
+  const genders = useGenders();
 
   function updateFilter(key: string, value: string | null) {
     const next = new URLSearchParams(searchParams);
@@ -45,8 +39,8 @@ export function FilterBar() {
 
         <select className={selectClass} value={searchParams.get('genero') ?? ''} onChange={(e) => updateFilter('genero', e.target.value || null)}>
           <option value="">Género</option>
-          {GENDERS.map((g) => (
-            <option key={g.value} value={g.value}>{g.label}</option>
+          {genders.map((g) => (
+            <option key={g.id} value={g.slug}>{g.name}</option>
           ))}
         </select>
 

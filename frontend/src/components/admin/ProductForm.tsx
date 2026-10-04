@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { useSeasons, useCategories } from '@/hooks/useCategories';
+import { useSeasons, useCategories, useGenders } from '@/hooks/useCategories';
 import { KIDS_SIZES, sizeLabel } from '@/lib/sizes';
 import { formatPEN } from '@/lib/formatCurrency';
 import { decodeImageFilename, type DecodedImageSku } from '@/lib/skuDecoder';
@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
-import type { Gender, Product, ProductImage } from '@/types/catalog';
+import type { Product, ProductImage } from '@/types/catalog';
 
 interface VariantDraft {
   id?: string; // presente si ya existe en la DB (modo edición)
@@ -46,7 +46,7 @@ function blankState() {
   return {
     name: '',
     description: '',
-    gender: 'nino' as Gender,
+    genderId: '',
     seasonId: '',
     categoryId: '',
     costPrice: 0,
@@ -69,13 +69,14 @@ function blankState() {
 export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
   const seasons = useSeasons();
   const categories = useCategories();
+  const genders = useGenders();
   const isEditing = !!editingProduct;
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
   const [name, setName] = useState(blankState().name);
   const [description, setDescription] = useState(blankState().description);
-  const [gender, setGender] = useState<Gender>(blankState().gender);
+  const [genderId, setGenderId] = useState(blankState().genderId);
   const [seasonId, setSeasonId] = useState(blankState().seasonId);
   const [categoryId, setCategoryId] = useState(blankState().categoryId);
 
@@ -112,7 +113,7 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     if (editingProduct) {
       setName(editingProduct.name);
       setDescription(editingProduct.description ?? '');
-      setGender(editingProduct.gender);
+      setGenderId(editingProduct.genderId);
       setSeasonId(editingProduct.seasonId);
       setCategoryId(editingProduct.categoryId);
       setCostPrice(editingProduct.costPrice);
@@ -324,7 +325,7 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     const blank = blankState();
     setName(blank.name);
     setDescription(blank.description);
-    setGender(blank.gender);
+    setGenderId(blank.genderId);
     setSeasonId(blank.seasonId);
     setCategoryId(blank.categoryId);
     setCostPrice(blank.costPrice);
@@ -390,7 +391,7 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     const payload = {
       name,
       description: description || null,
-      gender,
+      gender_id: genderId,
       season_id: seasonId,
       category_id: categoryId,
       cost_price: costPrice,
@@ -733,11 +734,11 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
             <div className="border-t border-ink-100 pt-5">
               <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Clasificación</h3>
               <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <Select label="Género" value={gender} onChange={(e) => setGender(e.target.value as Gender)}>
-                  <option value="nino">Niño</option>
-                  <option value="nina">Niña</option>
-                  <option value="bebe">Bebé</option>
-                  <option value="unisex">Unisex</option>
+                <Select label="Género" required value={genderId} onChange={(e) => setGenderId(e.target.value)}>
+                  <option value="" disabled>Elegir</option>
+                  {genders.map((g) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
                 </Select>
                 <div>
                   <Select label="Temporada" required value={seasonId} onChange={(e) => setSeasonId(e.target.value)}>

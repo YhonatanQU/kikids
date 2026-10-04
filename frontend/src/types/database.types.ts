@@ -17,7 +17,6 @@ export type Database = {
         | 'delivered'
         | 'cancelled'
         | 'expired';
-      gender_type: 'nino' | 'nina' | 'bebe' | 'unisex';
     };
   };
 };

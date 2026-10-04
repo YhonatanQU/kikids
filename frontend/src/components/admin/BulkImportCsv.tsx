@@ -1,12 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { useSeasons, useCategories } from '@/hooks/useCategories';
+import { useSeasons, useCategories, useGenders } from '@/hooks/useCategories';
 import { KIDS_SIZES } from '@/lib/sizes';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
-import type { Gender } from '@/types/catalog';
 
 interface Props {
   onImported: () => void;
@@ -100,10 +99,11 @@ function toImportRows(raw: Record<string, string>[]): ImportRow[] {
 export function BulkImportCsv({ onImported, onClose }: Props) {
   const seasons = useSeasons();
   const categories = useCategories();
+  const genders = useGenders();
 
   const [csvText, setCsvText] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [gender, setGender] = useState<Gender>('unisex');
+  const [genderId, setGenderId] = useState('');
   const [marginPercentage, setMarginPercentage] = useState(30);
   const [initialStock, setInitialStock] = useState(1);
 
@@ -111,6 +111,14 @@ export function BulkImportCsv({ onImported, onClose }: Props) {
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [results, setResults] = useState<ImportResult[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Por defecto "Unisex" (si existe) en cuanto cargan los géneros, para no
+  // obligar a elegir en el caso más común de este tipo de importación masiva.
+  useEffect(() => {
+    if (genderId || genders.length === 0) return;
+    const unisex = genders.find((g) => g.slug === 'unisex');
+    setGenderId((unisex ?? genders[0]).id);
+  }, [genders, genderId]);
 
   const rows = useMemo(() => toImportRows(parseCsv(csvText)), [csvText]);
   const seasonCounts = useMemo(() => {
@@ -127,7 +135,7 @@ export function BulkImportCsv({ onImported, onClose }: Props) {
   }
 
   async function handleImport() {
-    if (rows.length === 0 || !categoryId) return;
+    if (rows.length === 0 || !categoryId || !genderId) return;
     setImporting(true);
     setError(null);
     setResults([]);
@@ -154,7 +162,7 @@ export function BulkImportCsv({ onImported, onClose }: Props) {
           .insert({
             name: row.sku,
             description: null,
-            gender,
+            gender_id: genderId,
             season_id: season.id,
             category_id: categoryId,
             cost_price: row.costPrice,
@@ -263,11 +271,11 @@ export function BulkImportCsv({ onImported, onClose }: Props) {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </Select>
-          <Select label="Género" value={gender} onChange={(e) => setGender(e.target.value as Gender)}>
-            <option value="unisex">Unisex</option>
-            <option value="nino">Niño</option>
-            <option value="nina">Niña</option>
-            <option value="bebe">Bebé</option>
+          <Select label="Género" required value={genderId} onChange={(e) => setGenderId(e.target.value)}>
+            <option value="" disabled>Elegir</option>
+            {genders.map((g) => (
+              <option key={g.id} value={g.id}>{g.name}</option>
+            ))}
           </Select>
           <Input
             label="Margen (%)"
@@ -333,7 +341,7 @@ export function BulkImportCsv({ onImported, onClose }: Props) {
             size="lg"
             fullWidth
             loading={importing}
-            disabled={rows.length === 0 || !categoryId}
+            disabled={rows.length === 0 || !categoryId || !genderId}
             onClick={handleImport}
           >
             Importar {rows.length > 0 ? rows.length : ''} productos

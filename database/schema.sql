@@ -21,8 +21,6 @@ create type order_status as enum (
   'expired'            -- Reserva vencida sin pago (stock liberado)
 );
 
-create type gender_type as enum ('nino', 'nina', 'bebe', 'unisex');
-
 -- =====================================================================
 -- 2. TEMPORADAS / COLECCIONES  (eje de filtro #1)
 -- =====================================================================
@@ -37,6 +35,23 @@ create table seasons (
 );
 
 comment on table seasons is 'Colección madre: Verano, Invierno, Primavera-Otoño. Eje de filtro cruzado con género y categoría.';
+
+-- =====================================================================
+-- 2b. GÉNERO  (eje de filtro #2 — tabla editable, no un enum fijo, para
+--     poder administrar sus opciones desde el panel admin igual que
+--     temporadas y categorías)
+-- =====================================================================
+
+create table genders (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,          -- 'Niño', 'Niña', 'Bebé', 'Unisex'
+  slug text not null unique,
+  is_active boolean not null default true,
+  display_order int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+comment on table genders is 'Género objetivo de la prenda. Eje de filtro cruzado con temporada y categoría.';
 
 -- =====================================================================
 -- 3. CATEGORÍAS (tipo de prenda, con subcategorías opcionales)
@@ -66,7 +81,7 @@ create table products (
   description text,
   category_id uuid not null references categories(id),
   season_id uuid not null references seasons(id),
-  gender gender_type not null,
+  gender_id uuid not null references genders(id),
 
   -- Costeo: base_price (precio de venta) se calcula en el admin como
   -- (cost_price + freight_cost + admin_cost) * (1 + markup_percentage/100)
@@ -93,7 +108,7 @@ create table products (
 
 -- Índice clave para el filtro cruzado:
 -- "Colección Verano -> Niños -> Categoría X"
-create index idx_products_filter on products (season_id, gender, category_id)
+create index idx_products_filter on products (season_id, gender_id, category_id)
   where is_active;
 
 create index idx_products_slug on products (slug);
@@ -539,6 +554,7 @@ $$;
 -- =====================================================================
 
 alter table seasons enable row level security;
+alter table genders enable row level security;
 alter table categories enable row level security;
 alter table products enable row level security;
 alter table product_variants enable row level security;
@@ -551,6 +567,7 @@ alter table admin_profiles enable row level security;
 
 -- --- Lectura pública del catálogo (rol anon) ---
 create policy "public_read_seasons" on seasons for select using (is_active);
+create policy "public_read_genders" on genders for select using (is_active);
 create policy "public_read_categories" on categories for select using (is_active);
 create policy "public_read_products" on products for select using (is_active);
 create policy "public_read_variants" on product_variants for select using (is_active);
@@ -558,6 +575,8 @@ create policy "public_read_images" on product_images for select using (true);
 
 -- --- Gestión completa para administradores autenticados ---
 create policy "admin_all_seasons" on seasons for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin_all_genders" on genders for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "admin_all_categories" on categories for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
@@ -598,6 +617,13 @@ insert into seasons (name, slug, display_order) values
   ('Verano', 'verano', 1),
   ('Invierno', 'invierno', 2),
   ('Primavera-Otoño', 'primavera-otono', 3)
+on conflict (slug) do nothing;
+
+insert into genders (name, slug, display_order) values
+  ('Niño', 'nino', 1),
+  ('Niña', 'nina', 2),
+  ('Bebé', 'bebe', 3),
+  ('Unisex', 'unisex', 4)
 on conflict (slug) do nothing;
 
 insert into categories (name, slug, display_order) values

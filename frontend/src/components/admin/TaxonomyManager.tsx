@@ -4,18 +4,26 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 
-interface Row {
+export interface TaxonomyRow {
   id: string;
   name: string;
   slug: string;
   is_active: boolean;
   display_order: number;
 }
+type Row = TaxonomyRow;
 
 interface Props {
-  table: 'seasons' | 'categories' | 'genders';
+  table: 'seasons' | 'categories' | 'genders' | 'filter_types' | 'filter_values';
   title: string;
   itemLabel: string; // ej. "temporada", "categoría", "género" — para mensajes
+  /** Para tablas hijas (ej. filter_values de un filter_type puntual): columna y
+   * valor para acotar el select/insert, en vez de traer/crear filas de toda la tabla. */
+  scopeColumn?: string;
+  scopeValue?: string;
+  /** Si se da, cada fila muestra una flecha para expandir/colapsar este contenido
+   * debajo de ella (ej. el CRUD de opciones anidado dentro de cada tipo de filtro). */
+  renderExpanded?: (row: Row) => React.ReactNode;
 }
 
 /** Quita tildes/signos y normaliza a slug (igual criterio que ProductForm usa para sus propios slugs). */
@@ -30,12 +38,16 @@ function slugify(text: string): string {
 }
 
 /**
- * CRUD genérico para las tres tablas de taxonomía del catálogo (temporadas,
- * categorías, géneros) — todas comparten la misma forma (name/slug/is_active/
- * display_order) y las mismas policies RLS, así que un solo componente basta
- * para las tres en vez de repetir el formulario tres veces.
+ * CRUD genérico para las tablas de taxonomía del catálogo (temporadas,
+ * categorías, géneros, y los tipos/opciones de filtro personalizados) —
+ * todas comparten la misma forma (name/slug/is_active/display_order) y
+ * las mismas policies RLS, así que un solo componente basta para todas
+ * en vez de repetir el formulario cada vez. `scopeColumn`/`scopeValue`
+ * acotan una tabla hija (ej. filter_values de un filter_type puntual) y
+ * `renderExpanded` permite anidar otro CRUD de este mismo componente
+ * debajo de cada fila.
  */
-export function TaxonomyManager({ table, title, itemLabel }: Props) {
+export function TaxonomyManager({ table, title, itemLabel, scopeColumn, scopeValue, renderExpanded }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
@@ -44,20 +56,19 @@ export function TaxonomyManager({ table, title, itemLabel }: Props) {
   const [editingName, setEditingName] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   function load() {
     setLoading(true);
-    supabase
-      .from(table)
-      .select('id, name, slug, is_active, display_order')
-      .order('display_order')
-      .then(({ data }) => {
-        setRows((data ?? []) as Row[]);
-        setLoading(false);
-      });
+    let query = supabase.from(table).select('id, name, slug, is_active, display_order');
+    if (scopeColumn && scopeValue) query = query.eq(scopeColumn, scopeValue);
+    query.order('display_order').then(({ data }) => {
+      setRows((data ?? []) as Row[]);
+      setLoading(false);
+    });
   }
 
-  useEffect(load, [table]);
+  useEffect(load, [table, scopeColumn, scopeValue]);
 
   async function handleAdd() {
     const name = newName.trim();
@@ -67,7 +78,9 @@ export function TaxonomyManager({ table, title, itemLabel }: Props) {
     const slugBase = slugify(name);
     const slug = rows.some((r) => r.slug === slugBase) ? `${slugBase}-${Date.now().toString(36)}` : slugBase;
     const nextOrder = rows.length > 0 ? Math.max(...rows.map((r) => r.display_order)) + 1 : 1;
-    const { error: insertError } = await supabase.from(table).insert({ name, slug, display_order: nextOrder });
+    const payload: Record<string, unknown> = { name, slug, display_order: nextOrder };
+    if (scopeColumn && scopeValue) payload[scopeColumn] = scopeValue;
+    const { error: insertError } = await supabase.from(table).insert(payload);
     setAdding(false);
     if (insertError) {
       setError(insertError.message);
@@ -170,7 +183,20 @@ export function TaxonomyManager({ table, title, itemLabel }: Props) {
       ) : (
         <ul className="mt-3 divide-y divide-ink-100">
           {rows.map((row, i) => (
-            <li key={row.id} className="flex items-center gap-1.5 py-2.5">
+            <li key={row.id} className="py-2.5">
+            <div className="flex items-center gap-1.5">
+              {renderExpanded && (
+                <button
+                  type="button"
+                  onClick={() => setExpandedId(expandedId === row.id ? null : row.id)}
+                  aria-label={expandedId === row.id ? 'Colapsar' : 'Expandir'}
+                  className="shrink-0 text-ink-400 hover:text-ink-700"
+                >
+                  <svg viewBox="0 0 20 20" fill="none" className={`h-3.5 w-3.5 transition-transform ${expandedId === row.id ? 'rotate-90' : ''}`}>
+                    <path d="M7 5l6 5-6 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              )}
               <div className="flex shrink-0 flex-col">
                 <button
                   type="button"
@@ -261,6 +287,11 @@ export function TaxonomyManager({ table, title, itemLabel }: Props) {
                   <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
                 </svg>
               </button>
+            </div>
+
+            {renderExpanded && expandedId === row.id && (
+              <div className="mt-2 ml-5">{renderExpanded(row)}</div>
+            )}
             </li>
           ))}
         </ul>

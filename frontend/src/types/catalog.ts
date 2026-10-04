@@ -73,4 +73,19 @@ export interface CatalogFilters {
   categorySlug?: string;
   size?: string;
   color?: string;
+  /** Ejes de filtro personalizados (ej. Talla, Edad) creados desde el admin: slug del tipo -> slug de la opción elegida. */
+  customFilters?: Record<string, string>;
+}
+
+export interface FilterValue {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface FilterType {
+  id: string;
+  name: string;
+  slug: string;
+  values: FilterValue[];
 }

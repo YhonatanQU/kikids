@@ -54,6 +54,36 @@ create table genders (
 comment on table genders is 'Género objetivo de la prenda. Eje de filtro cruzado con temporada y categoría.';
 
 -- =====================================================================
+-- 2c. FILTROS PERSONALIZADOS (ejes de filtro adicionales, ej. Talla, Edad)
+-- =====================================================================
+-- A diferencia de temporada/categoría/género (columnas fijas en products,
+-- obligatorias), estos ejes los crea el admin libremente: filter_types es
+-- el eje, filter_values sus opciones, y product_filter_values qué opciones
+-- tiene marcadas cada producto (muchos a muchos, todo opcional).
+
+create table filter_types (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  slug text not null unique,
+  is_active boolean not null default true,
+  display_order int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+comment on table filter_types is 'Ejes de filtro adicionales definidos por el admin (ej. Talla, Edad), más allá de temporada/categoría/género.';
+
+create table filter_values (
+  id uuid primary key default gen_random_uuid(),
+  filter_type_id uuid not null references filter_types(id) on delete cascade,
+  name text not null,
+  slug text not null,
+  is_active boolean not null default true,
+  display_order int not null default 0,
+  created_at timestamptz not null default now(),
+  unique (filter_type_id, slug)
+);
+
+-- =====================================================================
 -- 3. CATEGORÍAS (tipo de prenda, con subcategorías opcionales)
 -- =====================================================================
 
@@ -114,6 +144,16 @@ create index idx_products_filter on products (season_id, gender_id, category_id)
 create index idx_products_slug on products (slug);
 
 comment on table products is 'Producto "padre". El stock real vive en product_variants (talla/color).';
+
+-- Qué opciones de filtro personalizado (ej. Talla=2 años, Edad=0-6 meses)
+-- tiene marcadas cada producto — muchos a muchos, todo opcional.
+create table product_filter_values (
+  product_id uuid not null references products(id) on delete cascade,
+  filter_value_id uuid not null references filter_values(id) on delete cascade,
+  primary key (product_id, filter_value_id)
+);
+
+create index idx_product_filter_values_value on product_filter_values (filter_value_id);
 
 -- =====================================================================
 -- 5. VARIANTES DE PRODUCTO (talla + color = unidad real de stock)
@@ -556,6 +596,9 @@ $$;
 alter table seasons enable row level security;
 alter table genders enable row level security;
 alter table categories enable row level security;
+alter table filter_types enable row level security;
+alter table filter_values enable row level security;
+alter table product_filter_values enable row level security;
 alter table products enable row level security;
 alter table product_variants enable row level security;
 alter table product_images enable row level security;
@@ -569,6 +612,9 @@ alter table admin_profiles enable row level security;
 create policy "public_read_seasons" on seasons for select using (is_active);
 create policy "public_read_genders" on genders for select using (is_active);
 create policy "public_read_categories" on categories for select using (is_active);
+create policy "public_read_filter_types" on filter_types for select using (is_active);
+create policy "public_read_filter_values" on filter_values for select using (is_active);
+create policy "public_read_product_filter_values" on product_filter_values for select using (true);
 create policy "public_read_products" on products for select using (is_active);
 create policy "public_read_variants" on product_variants for select using (is_active);
 create policy "public_read_images" on product_images for select using (true);
@@ -577,6 +623,12 @@ create policy "public_read_images" on product_images for select using (true);
 create policy "admin_all_seasons" on seasons for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "admin_all_genders" on genders for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin_all_filter_types" on filter_types for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin_all_filter_values" on filter_values for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin_all_product_filter_values" on product_filter_values for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "admin_all_categories" on categories for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');

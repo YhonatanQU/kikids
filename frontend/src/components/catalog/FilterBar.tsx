@@ -1,5 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
 import { useSeasons, useCategories, useGenders } from '@/hooks/useCategories';
+import { useCustomFilterTypes } from '@/hooks/useCustomFilters';
 
 const selectClass =
   'rounded-xl border border-ink-200 bg-white px-3.5 py-2 text-sm font-medium text-ink-700 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-brand-400/40';
@@ -14,6 +15,7 @@ export function FilterBar() {
   const seasons = useSeasons();
   const categories = useCategories();
   const genders = useGenders();
+  const customFilterTypes = useCustomFilterTypes();
 
   function updateFilter(key: string, value: string | null) {
     const next = new URLSearchParams(searchParams);
@@ -50,6 +52,20 @@ export function FilterBar() {
             <option key={c.id} value={c.slug}>{c.name}</option>
           ))}
         </select>
+
+        {customFilterTypes.map((ft) => (
+          <select
+            key={ft.id}
+            className={selectClass}
+            value={searchParams.get(ft.slug) ?? ''}
+            onChange={(e) => updateFilter(ft.slug, e.target.value || null)}
+          >
+            <option value="">{ft.name}</option>
+            {ft.values.map((v) => (
+              <option key={v.id} value={v.slug}>{v.name}</option>
+            ))}
+          </select>
+        ))}
 
         {hasFilters && (
           <button

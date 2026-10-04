@@ -1,17 +1,35 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useProducts } from '@/hooks/useProducts';
+import { useCustomFilterTypes } from '@/hooks/useCustomFilters';
 import { ProductGrid } from '@/components/catalog/ProductGrid';
 import { FilterBar } from '@/components/catalog/FilterBar';
+
+const RESERVED_PARAMS = new Set(['temporada', 'genero', 'categoria']);
 
 export function CatalogPage() {
   const [searchParams] = useSearchParams();
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const customFilterTypes = useCustomFilterTypes();
+
+  // Cualquier filtro personalizado activo (ej. ?talla=2-anos) además de los
+  // tres fijos — se resuelve por slug del tipo, nunca por nombre fijo en código,
+  // ya que estos tipos los crea el admin libremente.
+  const customFilters = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const ft of customFilterTypes) {
+      if (RESERVED_PARAMS.has(ft.slug)) continue;
+      const value = searchParams.get(ft.slug);
+      if (value) map[ft.slug] = value;
+    }
+    return map;
+  }, [customFilterTypes, searchParams]);
 
   const { products, loading, error } = useProducts({
     seasonSlug: searchParams.get('temporada') ?? undefined,
     genderSlug: searchParams.get('genero') ?? undefined,
     categorySlug: searchParams.get('categoria') ?? undefined,
+    customFilters,
   });
 
   // El botón "subir" solo aparece después de bajar un poco — no tiene

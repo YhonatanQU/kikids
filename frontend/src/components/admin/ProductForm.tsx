@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useSeasons, useCategories, useGenders } from '@/hooks/useCategories';
+import { useCustomFilterTypes } from '@/hooks/useCustomFilters';
 import { KIDS_SIZES, sizeLabel } from '@/lib/sizes';
 import { formatPEN } from '@/lib/formatCurrency';
 import { decodeImageFilename, type DecodedImageSku } from '@/lib/skuDecoder';
@@ -70,6 +71,7 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
   const seasons = useSeasons();
   const categories = useCategories();
   const genders = useGenders();
+  const customFilterTypes = useCustomFilterTypes();
   const isEditing = !!editingProduct;
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -89,6 +91,8 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
 
   const [variants, setVariants] = useState<VariantDraft[]>(blankState().variants);
   const [deletedVariantIds, setDeletedVariantIds] = useState<string[]>([]);
+
+  const [selectedFilterValueIds, setSelectedFilterValueIds] = useState<Set<string>>(new Set());
 
   const [existingImages, setExistingImages] = useState<ProductImage[]>([]);
   const [deletedImageIds, setDeletedImageIds] = useState<string[]>([]);
@@ -144,6 +148,11 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
       setVideoFile(null);
       setError(null);
       setStep(1);
+      supabase
+        .from('product_filter_values')
+        .select('filter_value_id')
+        .eq('product_id', editingProduct.id)
+        .then(({ data }) => setSelectedFilterValueIds(new Set((data ?? []).map((r: any) => r.filter_value_id))));
     } else {
       resetForm();
     }
@@ -212,6 +221,15 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
 
   function updateVariant(index: number, patch: Partial<VariantDraft>) {
     setVariants((prev) => prev.map((v, i) => (i === index ? { ...v, ...patch } : v)));
+  }
+
+  function toggleFilterValue(id: string) {
+    setSelectedFilterValueIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   function removeExistingImage(imageId: string) {
@@ -336,6 +354,7 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     setDiscountActive(blank.discountActive);
     setVariants(blank.variants);
     setDeletedVariantIds([]);
+    setSelectedFilterValueIds(new Set());
     setExistingImages([]);
     setDeletedImageIds([]);
     setImages([]);
@@ -346,6 +365,27 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
     setDeleteExistingVideo(false);
     setVideoFile(null);
     setStep(1);
+  }
+
+  /** Sincroniza las opciones de filtro personalizado marcadas (ej. talla,
+   * edad) contra lo que ya había en product_filter_values — solo inserta
+   * lo nuevo y borra lo que se desmarcó, en vez de reemplazar todo. */
+  async function syncFilterValues(productId: string) {
+    const { data: existing } = await supabase
+      .from('product_filter_values')
+      .select('filter_value_id')
+      .eq('product_id', productId);
+    const existingIds = new Set((existing ?? []).map((r: any) => r.filter_value_id as string));
+
+    const toAdd = [...selectedFilterValueIds].filter((id) => !existingIds.has(id));
+    const toRemove = [...existingIds].filter((id) => !selectedFilterValueIds.has(id));
+
+    if (toAdd.length > 0) {
+      await supabase.from('product_filter_values').insert(toAdd.map((filter_value_id) => ({ product_id: productId, filter_value_id })));
+    }
+    if (toRemove.length > 0) {
+      await supabase.from('product_filter_values').delete().eq('product_id', productId).in('filter_value_id', toRemove);
+    }
   }
 
   /** Devuelve mensajes de error (si los hay) en vez de tragárselos en
@@ -468,6 +508,8 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
         }))
       );
     }
+
+    await syncFilterValues(productId);
 
     const uploadFailures = await uploadImages(productId);
 
@@ -759,6 +801,43 @@ export function ProductForm({ editingProduct, onSaved, onCancelEdit }: Props) {
                 </Select>
               </div>
             </div>
+
+            {customFilterTypes.length > 0 && (
+              <div className="border-t border-ink-100 pt-5">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">Filtros adicionales (opcional)</h3>
+                <div className="mt-3 space-y-3">
+                  {customFilterTypes.map((ft) => (
+                    <div key={ft.id}>
+                      <p className="mb-1.5 text-sm font-medium text-ink-700">{ft.name}</p>
+                      {ft.values.length === 0 ? (
+                        <p className="text-xs text-ink-400">Sin opciones — agrégalas en Categorías / Filtros.</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {ft.values.map((v) => (
+                            <label
+                              key={v.id}
+                              className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                                selectedFilterValueIds.has(v.id)
+                                  ? 'border-brand-400 bg-brand-50 text-brand-700'
+                                  : 'border-ink-200 text-ink-600 hover:bg-ink-50'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                className="hidden"
+                                checked={selectedFilterValueIds.has(v.id)}
+                                onChange={() => toggleFilterValue(v.id)}
+                              />
+                              {v.name}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <Button type="button" variant="secondary" size="lg" onClick={() => setStep(1)}>

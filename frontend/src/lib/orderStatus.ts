@@ -6,5 +6,5 @@ export const ORDER_STATUS_STYLE: Record<OrderStatus, { label: string; className:
   shipped: { label: 'Enviado', className: 'bg-blue-50 text-blue-700' },
   delivered: { label: 'Entregado', className: 'bg-ink-100 text-ink-600' },
   cancelled: { label: 'Cancelado', className: 'bg-red-50 text-red-600' },
-  expired: { label: 'Expirado', className: 'bg-ink-100 text-ink-400' },
+  expired: { label: 'Vencido', className: 'bg-ink-100 text-ink-400' },
 };

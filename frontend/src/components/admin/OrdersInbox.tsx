@@ -26,7 +26,10 @@ export function OrdersInbox() {
   }
 
   useEffect(() => {
-    loadOrders();
+    // Autocuración al abrir la bandeja: además del cron de Supabase (cada 5
+    // min), se libera cualquier reserva ya vencida al instante al entrar
+    // aquí, para que el admin no tenga que esperar al siguiente tick.
+    supabase.rpc('release_expired_reservations').then(() => loadOrders());
 
     // El payload de Realtime solo trae columnas de "orders" (sin el join a
     // customers), así que al fusionar conservamos el email que ya teníamos.

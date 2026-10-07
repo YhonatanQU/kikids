@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 
@@ -22,26 +23,56 @@ function BrandMark({ collapsed = false }: { collapsed?: boolean }) {
   );
 }
 
-/** Ícono + etiqueta — en modo contraído la etiqueta se vuelve un tooltip que
- * aparece al pasar el mouse (el padre debe llevar las clases `group relative`). */
+interface TooltipState {
+  label: string;
+  top: number;
+  left: number;
+}
+
+/** Tooltip del sidebar contraído, portado a document.body: el <aside> tiene
+ * overflow-y-auto (para cuando el menú crece), y por la regla de CSS que
+ * convierte el otro eje de "visible" a "auto" en cuanto uno de los dos no
+ * es "visible", cualquier cosa posicionada fuera de su borde horizontal
+ * quedaba recortada e invisible — igual problema que tuvo el CartDrawer con
+ * el backdrop-filter del header. Portarlo fuera de ese contenedor lo evita. */
+function SidebarTooltip({ tooltip }: { tooltip: TooltipState | null }) {
+  if (!tooltip) return null;
+  return createPortal(
+    <div
+      className="pointer-events-none fixed z-[100] -translate-y-1/2 whitespace-nowrap rounded-lg bg-ink-900 px-3 py-1.5 text-xs font-semibold text-white shadow-card"
+      style={{ top: tooltip.top, left: tooltip.left }}
+    >
+      {tooltip.label}
+      <span className="absolute right-full top-1/2 h-0 w-0 -translate-y-1/2 border-[5px] border-transparent border-r-ink-900" />
+    </div>,
+    document.body
+  );
+}
+
+/** Ícono + etiqueta — en modo contraído la etiqueta se oculta (el tooltip se
+ * muestra aparte, vía SidebarTooltip). */
 function NavItemContent({ icon, label, collapsed }: { icon: string; label: string; collapsed: boolean }) {
   return (
     <>
       <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0">
         <path d={icon} stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      {collapsed ? (
-        <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-ink-900 px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-soft transition-opacity group-hover:opacity-100">
-          {label}
-        </span>
-      ) : (
-        label
-      )}
+      {!collapsed && label}
     </>
   );
 }
 
-function NavLinks({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
+interface TooltipHandlers {
+  onShowTooltip: (label: string, el: HTMLElement) => void;
+  onHideTooltip: () => void;
+}
+
+function NavLinks({
+  onNavigate,
+  collapsed = false,
+  onShowTooltip,
+  onHideTooltip,
+}: { onNavigate?: () => void; collapsed?: boolean } & Partial<TooltipHandlers>) {
   const location = useLocation();
   return (
     <nav className="flex flex-1 flex-col gap-1">
@@ -53,7 +84,11 @@ function NavLinks({ onNavigate, collapsed = false }: { onNavigate?: () => void; 
             to={item.to}
             onClick={onNavigate}
             aria-label={collapsed ? item.label : undefined}
-            className={`group relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+            onMouseEnter={collapsed ? (e) => onShowTooltip?.(item.label, e.currentTarget) : undefined}
+            onMouseLeave={collapsed ? onHideTooltip : undefined}
+            onFocus={collapsed ? (e) => onShowTooltip?.(item.label, e.currentTarget) : undefined}
+            onBlur={collapsed ? onHideTooltip : undefined}
+            className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
               collapsed ? 'justify-center' : ''
             } ${active ? 'bg-brand-50 text-brand-700' : 'text-ink-600 hover:bg-ink-50'}`}
           >
@@ -65,12 +100,21 @@ function NavLinks({ onNavigate, collapsed = false }: { onNavigate?: () => void; 
   );
 }
 
-function LogoutButton({ onClick, collapsed = false }: { onClick: () => void; collapsed?: boolean }) {
+function LogoutButton({
+  onClick,
+  collapsed = false,
+  onShowTooltip,
+  onHideTooltip,
+}: { onClick: () => void; collapsed?: boolean } & Partial<TooltipHandlers>) {
   return (
     <button
       onClick={onClick}
       aria-label={collapsed ? 'Cerrar sesión' : undefined}
-      className={`group relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-ink-400 hover:bg-red-50 hover:text-red-500 ${
+      onMouseEnter={collapsed ? (e) => onShowTooltip?.('Cerrar sesión', e.currentTarget) : undefined}
+      onMouseLeave={collapsed ? onHideTooltip : undefined}
+      onFocus={collapsed ? (e) => onShowTooltip?.('Cerrar sesión', e.currentTarget) : undefined}
+      onBlur={collapsed ? onHideTooltip : undefined}
+      className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-ink-400 hover:bg-red-50 hover:text-red-500 ${
         collapsed ? 'justify-center' : ''
       }`}
     >
@@ -91,6 +135,7 @@ export function AdminLayout() {
       return false;
     }
   });
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
   useEffect(() => {
     try {
@@ -98,7 +143,16 @@ export function AdminLayout() {
     } catch {
       // modo privado / storage bloqueado: no es crítico, simplemente no se recuerda la preferencia
     }
+    if (!collapsed) setTooltip(null); // al expandir, no queda un tooltip de un hover ya viejo
   }, [collapsed]);
+
+  function showTooltip(label: string, el: HTMLElement) {
+    const rect = el.getBoundingClientRect();
+    setTooltip({ label, top: rect.top + rect.height / 2, left: rect.right + 10 });
+  }
+  function hideTooltip() {
+    setTooltip(null);
+  }
 
   return (
     <div className="min-h-screen bg-ink-50 md:flex">
@@ -168,9 +222,11 @@ export function AdminLayout() {
             </svg>
           </button>
         </div>
-        <NavLinks collapsed={collapsed} />
-        <LogoutButton onClick={signOut} collapsed={collapsed} />
+        <NavLinks collapsed={collapsed} onShowTooltip={showTooltip} onHideTooltip={hideTooltip} />
+        <LogoutButton onClick={signOut} collapsed={collapsed} onShowTooltip={showTooltip} onHideTooltip={hideTooltip} />
       </aside>
+
+      <SidebarTooltip tooltip={tooltip} />
 
       <main className="flex-1 p-4 md:p-8">
         <Outlet />

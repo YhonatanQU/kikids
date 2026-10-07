@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 
@@ -9,16 +9,39 @@ const ADMIN_NAV = [
   { to: '/admin/pedidos', label: 'Pedidos', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
 ];
 
-function BrandMark() {
+const LOGOUT_ICON = 'M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h2m4-14l5 5-5 5m5-5H9';
+
+const SIDEBAR_COLLAPSED_KEY = 'kikids-admin-sidebar-collapsed';
+
+function BrandMark({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <span className="flex items-center gap-2">
-      <img src="/icon-192.png" alt="KIKIDS" className="h-8 w-8" />
-      <span className="text-lg font-extrabold tracking-tight text-ink-900">KIKIDS</span>
+      <img src="/icon-192.png" alt="KIKIDS" className="h-8 w-8 shrink-0" />
+      {!collapsed && <span className="text-lg font-extrabold tracking-tight text-ink-900">KIKIDS</span>}
     </span>
   );
 }
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+/** Ícono + etiqueta — en modo contraído la etiqueta se vuelve un tooltip que
+ * aparece al pasar el mouse (el padre debe llevar las clases `group relative`). */
+function NavItemContent({ icon, label, collapsed }: { icon: string; label: string; collapsed: boolean }) {
+  return (
+    <>
+      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0">
+        <path d={icon} stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      {collapsed ? (
+        <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-ink-900 px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-soft transition-opacity group-hover:opacity-100">
+          {label}
+        </span>
+      ) : (
+        label
+      )}
+    </>
+  );
+}
+
+function NavLinks({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
   const location = useLocation();
   return (
     <nav className="flex flex-1 flex-col gap-1">
@@ -29,14 +52,12 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             key={item.to}
             to={item.to}
             onClick={onNavigate}
-            className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-              active ? 'bg-brand-50 text-brand-700' : 'text-ink-600 hover:bg-ink-50'
-            }`}
+            aria-label={collapsed ? item.label : undefined}
+            className={`group relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+              collapsed ? 'justify-center' : ''
+            } ${active ? 'bg-brand-50 text-brand-700' : 'text-ink-600 hover:bg-ink-50'}`}
           >
-            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0">
-              <path d={item.icon} stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            {item.label}
+            <NavItemContent icon={item.icon} label={item.label} collapsed={collapsed} />
           </Link>
         );
       })}
@@ -44,10 +65,40 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-/** Panel de administración: sidebar fijo en escritorio/tablet, menú hamburguesa en móvil (brief 3.B). */
+function LogoutButton({ onClick, collapsed = false }: { onClick: () => void; collapsed?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={collapsed ? 'Cerrar sesión' : undefined}
+      className={`group relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-ink-400 hover:bg-red-50 hover:text-red-500 ${
+        collapsed ? 'justify-center' : ''
+      }`}
+    >
+      <NavItemContent icon={LOGOUT_ICON} label="Cerrar sesión" collapsed={collapsed} />
+    </button>
+  );
+}
+
+/** Panel de administración: sidebar fijo en escritorio/tablet (contraíble a
+ * solo iconos, con tooltip al pasar el mouse), menú hamburguesa en móvil. */
 export function AdminLayout() {
   const { signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
+    } catch {
+      // modo privado / storage bloqueado: no es crítico, simplemente no se recuerda la preferencia
+    }
+  }, [collapsed]);
 
   return (
     <div className="min-h-screen bg-ink-50 md:flex">
@@ -87,36 +138,38 @@ export function AdminLayout() {
               </button>
             </div>
             <NavLinks onNavigate={() => setMenuOpen(false)} />
-            <button
-              onClick={signOut}
-              className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-ink-400 hover:bg-red-50 hover:text-red-500"
-            >
-              <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
-                <path d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h2m4-14l5 5-5 5m5-5H9" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Cerrar sesión
-            </button>
+            <LogoutButton onClick={signOut} />
           </div>
         </div>
       )}
 
       {/* Sidebar fijo — solo escritorio/tablet. "sticky" + alto de viewport
           para que no se vaya con el scroll cuando el listado (ej. 100+
-          tarjetas de producto) es más alto que la pantalla. */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-ink-100 bg-white p-4 md:flex md:sticky md:top-0 md:h-screen md:overflow-y-auto">
-        <Link to="/admin" className="mb-8 px-2">
-          <BrandMark />
-        </Link>
-        <NavLinks />
-        <button
-          onClick={signOut}
-          className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-ink-400 hover:bg-red-50 hover:text-red-500"
-        >
-          <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
-            <path d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h2m4-14l5 5-5 5m5-5H9" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          Cerrar sesión
-        </button>
+          tarjetas de producto) es más alto que la pantalla. Contraíble: el
+          botón de la flecha achica el ancho a solo-íconos y la preferencia
+          se recuerda en localStorage. */}
+      <aside
+        className={`hidden shrink-0 flex-col border-r border-ink-100 bg-white p-4 transition-all duration-200 md:flex md:sticky md:top-0 md:h-screen md:overflow-y-auto ${
+          collapsed ? 'w-[72px]' : 'w-60'
+        }`}
+      >
+        <div className={`mb-6 flex items-center gap-2 ${collapsed ? 'flex-col' : 'justify-between px-2'}`}>
+          <Link to="/admin">
+            <BrandMark collapsed={collapsed} />
+          </Link>
+          <button
+            onClick={() => setCollapsed((c) => !c)}
+            aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+            title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-ink-400 hover:bg-ink-50 hover:text-ink-700"
+          >
+            <svg viewBox="0 0 20 20" fill="none" className={`h-3.5 w-3.5 transition-transform ${collapsed ? 'rotate-180' : ''}`}>
+              <path d="M12 4l-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+        <NavLinks collapsed={collapsed} />
+        <LogoutButton onClick={signOut} collapsed={collapsed} />
       </aside>
 
       <main className="flex-1 p-4 md:p-8">

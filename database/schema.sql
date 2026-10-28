@@ -319,6 +319,39 @@ create trigger trg_orders_updated before update on orders
 for each row execute function set_updated_at();
 
 -- =====================================================================
+-- 12.1 TRIGGER: RECALCULAR base_price AL CAMBIAR EL COSTEO
+-- =====================================================================
+-- base_price se guarda resuelto (el catálogo público solo lee un número),
+-- pero si alguien actualiza cost_price/freight_cost/admin_cost/markup_percentage
+-- directo por SQL (sin pasar por ProductForm, que es el único lugar que antes
+-- recalculaba esto en el cliente), base_price se quedaba desactualizado hasta
+-- abrir y volver a guardar el producto en el admin. Misma fórmula que usa
+-- ProductForm: precio = costo_total / (1 - margen%), margen tope 99%.
+
+create or replace function compute_product_base_price()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_total_cost numeric;
+  v_margin_ratio numeric;
+begin
+  v_total_cost := coalesce(new.cost_price, 0) + coalesce(new.freight_cost, 0) + coalesce(new.admin_cost, 0);
+  v_margin_ratio := least(coalesce(new.markup_percentage, 0), 99) / 100;
+  if v_margin_ratio < 1 then
+    new.base_price := round(v_total_cost / (1 - v_margin_ratio), 2);
+  else
+    new.base_price := 0;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger trg_products_compute_base_price
+before insert or update of cost_price, freight_cost, admin_cost, markup_percentage on products
+for each row execute function compute_product_base_price();
+
+-- =====================================================================
 -- 13. GENERADOR DE NÚMERO DE PEDIDO
 -- =====================================================================
 
